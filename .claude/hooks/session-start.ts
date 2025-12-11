@@ -65,29 +65,101 @@ import {
   type SessionStartHookInput,
   type SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
+import { spawn } from "bun";
+import { join } from "path";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<SessionStartHookInput>();
+/**
+ * Viewer server configuration
+ */
+const VIEWER_PORT = 3456;
+const VIEWER_URL = `http://localhost:${VIEWER_PORT}`;
 
-// Log the session start with structured data
-await log("SessionStart", input.session_id, {
-  cwd: input.cwd,
-  source: input.source,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  started_at: new Date().toISOString(),
-});
+/**
+ * Check if the viewer server is already running
+ */
+async function isViewerRunning(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1000);
 
-// Build the output response
-// Optionally inject context at session start
-const output: SyncHookJSONOutput = {
-  continue: true,
-  hookSpecificOutput: {
-    hookEventName: "SessionStart",
-    additionalContext: `Session started (${input.source}) at ${new Date().toISOString()}`,
-  },
-};
+    const response = await fetch(VIEWER_URL, {
+      signal: controller.signal,
+    });
 
-// Write JSON response to stdout
-writeOutput(output);
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Start the viewer server as a detached background process
+ */
+function startViewerServer(): void {
+  const viewerPath = join(import.meta.dir, "viewer", "server.ts");
+
+  try {
+    // Spawn detached process that survives parent exit
+    const proc = spawn(["bun", "run", viewerPath], {
+      stdout: "ignore",
+      stderr: "ignore",
+      stdin: "ignore",
+    });
+
+    // Unref to allow parent to exit
+    proc.unref();
+
+    console.error(`\n🔍 Hook Viewer starting at ${VIEWER_URL}\n`);
+  } catch (error) {
+    console.error("Failed to start viewer:", error);
+  }
+}
+
+/**
+ * Main execution
+ */
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<SessionStartHookInput>();
+
+  // Log the session start with structured data
+  await log("SessionStart", input.session_id, {
+    cwd: input.cwd,
+    source: input.source,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    started_at: new Date().toISOString(),
+  });
+
+  // === Start viewer on fresh startup ===
+  if (input.source === "startup") {
+    const viewerRunning = await isViewerRunning();
+
+    if (!viewerRunning) {
+      startViewerServer();
+    } else {
+      console.error(`\n🔍 Hook Viewer: ${VIEWER_URL}\n`);
+    }
+  }
+
+  // Build the output response
+  const additionalContext = input.source === "startup"
+    ? `Session started. Hook Viewer available at ${VIEWER_URL}`
+    : `Session ${input.source} at ${new Date().toISOString()}`;
+
+  const output: SyncHookJSONOutput = {
+    continue: true,
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext,
+    },
+  };
+
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+// Run the main function
+main();
