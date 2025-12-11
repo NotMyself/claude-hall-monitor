@@ -473,29 +473,34 @@
       emits: ['update:modelValue', 'update:selectedSession'],
       template: `
         <div class="filter-bar">
-          <session-selector
-            :sessions="sessions"
-            :current-session="currentSession"
-            :model-value="selectedSession"
-            @update:model-value="$emit('update:selectedSession', $event)"
-          />
+          <div class="filter-row filter-row-top">
+            <session-selector
+              :sessions="sessions"
+              :current-session="currentSession"
+              :model-value="selectedSession"
+              @update:model-value="$emit('update:selectedSession', $event)"
+            />
+          </div>
 
-          <input
-            type="text"
-            placeholder="Search logs..."
-            :value="modelValue.search"
-            @input="onSearchInput"
-          />
+          <div class="filter-row filter-row-main">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Search logs..."
+              :value="modelValue.search"
+              @input="onSearchInput"
+            />
 
-          <event-filter-dropdown
-            :model-value="modelValue.eventTypes"
-            :event-types="eventTypes"
-            @update:model-value="emit({ eventTypes: $event })"
-          />
+            <event-filter-dropdown
+              :model-value="modelValue.eventTypes"
+              :event-types="eventTypes"
+              @update:model-value="emit({ eventTypes: $event })"
+            />
 
-          <button @click="clearFilters" :disabled="!hasFilters">
-            Clear Filters
-          </button>
+            <button class="clear-filters-btn" @click="clearFilters" :disabled="!hasFilters">
+              Clear Filters
+            </button>
+          </div>
         </div>
       `,
       data() {
@@ -544,6 +549,7 @@
             search: '',
             eventTypes: [],
           });
+          this.$emit('update:selectedSession', 'all');
         },
       },
       beforeUnmount() {

@@ -133,46 +133,116 @@ body {
   color: var(--badge-text);
 }
 
-/* ===== Filter Bar ===== */
+/* ===== Filter Bar - Two Row Layout ===== */
 .filter-bar {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
   padding: 16px;
   background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 20px;
   border-radius: var(--radius);
 }
 
-.filter-bar input,
-.filter-bar select {
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--bg-card);
-  color: var(--text-primary);
-  font-family: inherit;
-  font-size: 0.875rem;
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.filter-bar input {
+.filter-row-top {
+  /* Session selector takes full width on its own row */
+}
+
+.filter-row-main {
+  /* Search, event filter, clear button */
+}
+
+.search-input {
   flex: 1;
   min-width: 200px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9em;
+  font-family: inherit;
 }
 
-.filter-bar button {
-  padding: 8px 16px;
-  border: none;
+.search-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.clear-filters-btn {
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  background: var(--primary);
-  color: white;
-  font-weight: 500;
+  color: var(--text-primary);
   cursor: pointer;
+  font-size: 0.9em;
+  white-space: nowrap;
   transition: background 0.2s;
 }
 
-.filter-bar button:hover {
-  background: var(--primary-hover);
+.clear-filters-btn:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.clear-filters-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .filter-row-main {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .search-input {
+    min-width: 100%;
+  }
+}
+
+/* ===== Session Selector ===== */
+.session-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-selector label {
+  font-size: 0.9em;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.session-select {
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.9em;
+  cursor: pointer;
+  font-family: var(--font-mono);
+}
+
+.session-select:focus {
+  outline: none;
+  border-color: var(--primary);
 }
 
 /* ===== Theme Toggle ===== */
@@ -315,14 +385,6 @@ body {
     flex-direction: column;
     gap: 12px;
     text-align: center;
-  }
-
-  .filter-bar {
-    flex-direction: column;
-  }
-
-  .filter-bar input {
-    width: 100%;
   }
 
   .card-header {
