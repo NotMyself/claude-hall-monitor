@@ -55,36 +55,27 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-/**
- * Main hook handler function.
- * Reads input from stdin, logs the prompt, and outputs JSON response.
- */
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<UserPromptSubmitHookInput>();
+// Read and parse the hook input from stdin
+const input = await readInput<UserPromptSubmitHookInput>();
 
-  // Log the prompt submission with structured data
-  await log("UserPromptSubmit", input.session_id, {
-    cwd: input.cwd,
-    prompt: input.prompt,
-    prompt_length: input.prompt.length,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-  });
+// Log the prompt submission with structured data
+await log("UserPromptSubmit", input.session_id, {
+  cwd: input.cwd,
+  prompt: input.prompt,
+  prompt_length: input.prompt.length,
+  transcript_path: input.transcript_path,
+  permission_mode: input.permission_mode,
+});
 
-  // Build the output response
-  // Uncomment hookSpecificOutput to inject additional context into the conversation
-  const output: SyncHookJSONOutput = {
-    continue: true,
-    // hookSpecificOutput: {
-    //   hookEventName: "UserPromptSubmit",
-    //   additionalContext: `Prompt received at ${new Date().toISOString()}`,
-    // },
-  };
+// Build the output response
+// Uncomment hookSpecificOutput to inject additional context into the conversation
+const output: SyncHookJSONOutput = {
+  continue: true,
+  // hookSpecificOutput: {
+  //   hookEventName: "UserPromptSubmit",
+  //   additionalContext: `Prompt received at ${new Date().toISOString()}`,
+  // },
+};
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
-
-// Execute the hook
-main().catch(console.error);
+// Write JSON response to stdout
+writeOutput(output);

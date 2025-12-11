@@ -54,34 +54,25 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-/**
- * Main hook handler function.
- * Reads input from stdin, logs the subagent completion, and outputs response.
- */
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<SubagentStopHookInput>();
+// Read and parse the hook input from stdin
+const input = await readInput<SubagentStopHookInput>();
 
-  // Log the subagent stop with structured data
-  await log("SubagentStop", input.session_id, {
-    cwd: input.cwd,
-    agent_id: input.agent_id,
-    agent_transcript_path: input.agent_transcript_path,
-    stop_hook_active: input.stop_hook_active,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    stopped_at: new Date().toISOString(),
-  });
+// Log the subagent stop with structured data
+await log("SubagentStop", input.session_id, {
+  cwd: input.cwd,
+  agent_id: input.agent_id,
+  agent_transcript_path: input.agent_transcript_path,
+  stop_hook_active: input.stop_hook_active,
+  transcript_path: input.transcript_path,
+  permission_mode: input.permission_mode,
+  stopped_at: new Date().toISOString(),
+});
 
-  // Build the output response
-  // SubagentStop doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
-  };
+// Build the output response
+// SubagentStop doesn't support hookSpecificOutput, just continue
+const output: SyncHookJSONOutput = {
+  continue: true,
+};
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
-
-// Execute the hook
-main().catch(console.error);
+// Write JSON response to stdout
+writeOutput(output);

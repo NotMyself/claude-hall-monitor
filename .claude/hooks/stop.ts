@@ -50,32 +50,23 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-/**
- * Main hook handler function.
- * Reads input from stdin, logs the stop event, and outputs response.
- */
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<StopHookInput>();
+// Read and parse the hook input from stdin
+const input = await readInput<StopHookInput>();
 
-  // Log the stop event with structured data
-  await log("Stop", input.session_id, {
-    cwd: input.cwd,
-    stop_hook_active: input.stop_hook_active,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    stopped_at: new Date().toISOString(),
-  });
+// Log the stop event with structured data
+await log("Stop", input.session_id, {
+  cwd: input.cwd,
+  stop_hook_active: input.stop_hook_active,
+  transcript_path: input.transcript_path,
+  permission_mode: input.permission_mode,
+  stopped_at: new Date().toISOString(),
+});
 
-  // Build the output response
-  // Stop doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
-  };
+// Build the output response
+// Stop doesn't support hookSpecificOutput, just continue
+const output: SyncHookJSONOutput = {
+  continue: true,
+};
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
-
-// Execute the hook
-main().catch(console.error);
+// Write JSON response to stdout
+writeOutput(output);

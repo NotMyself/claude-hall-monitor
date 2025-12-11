@@ -63,41 +63,32 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-/**
- * Main hook handler function.
- * Reads input from stdin, logs the tool failure, and outputs response.
- */
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<PostToolUseFailureHookInput>();
+// Read and parse the hook input from stdin
+const input = await readInput<PostToolUseFailureHookInput>();
 
-  // Log the tool failure with structured data
-  await log("PostToolUseFailure", input.session_id, {
-    cwd: input.cwd,
-    tool_name: input.tool_name,
-    tool_input: input.tool_input,
-    tool_use_id: input.tool_use_id,
-    error: input.error,
-    is_interrupt: input.is_interrupt ?? false,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-  });
+// Log the tool failure with structured data
+await log("PostToolUseFailure", input.session_id, {
+  cwd: input.cwd,
+  tool_name: input.tool_name,
+  tool_input: input.tool_input,
+  tool_use_id: input.tool_use_id,
+  error: input.error,
+  is_interrupt: input.is_interrupt ?? false,
+  transcript_path: input.transcript_path,
+  permission_mode: input.permission_mode,
+});
 
-  // Build the output response
-  // Optionally provide context to help with recovery
-  const output: SyncHookJSONOutput = {
-    continue: true,
-    hookSpecificOutput: {
-      hookEventName: "PostToolUseFailure",
-      additionalContext: input.is_interrupt
-        ? "Tool execution was interrupted by user"
-        : `Tool '${input.tool_name}' failed. Error logged for analysis.`,
-    },
-  };
+// Build the output response
+// Optionally provide context to help with recovery
+const output: SyncHookJSONOutput = {
+  continue: true,
+  hookSpecificOutput: {
+    hookEventName: "PostToolUseFailure",
+    additionalContext: input.is_interrupt
+      ? "Tool execution was interrupted by user"
+      : `Tool '${input.tool_name}' failed. Error logged for analysis.`,
+  },
+};
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
-
-// Execute the hook
-main().catch(console.error);
+// Write JSON response to stdout
+writeOutput(output);

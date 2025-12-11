@@ -120,7 +120,8 @@ export async function log(
  * Reads and parses JSON input from stdin.
  *
  * All Claude Code hooks receive their input as a JSON object via stdin.
- * This function uses Bun's native `stdin.json()` API for efficient parsing.
+ * This function reads stdin as text and parses it as JSON, which is more
+ * reliable on Windows than using Bun.stdin.json() directly.
  *
  * @typeParam T - The expected input type from the SDK (e.g., PreToolUseHookInput)
  * @returns Promise resolving to the parsed input object
@@ -135,7 +136,8 @@ export async function log(
  * ```
  */
 export async function readInput<T>(): Promise<T> {
-  return (await Bun.stdin.json()) as T;
+  const text = await Bun.stdin.text();
+  return JSON.parse(text) as T;
 }
 
 /**

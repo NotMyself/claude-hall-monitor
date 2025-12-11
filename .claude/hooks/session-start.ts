@@ -67,36 +67,27 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 
-/**
- * Main hook handler function.
- * Reads input from stdin, logs the session start, and outputs response.
- */
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<SessionStartHookInput>();
+// Read and parse the hook input from stdin
+const input = await readInput<SessionStartHookInput>();
 
-  // Log the session start with structured data
-  await log("SessionStart", input.session_id, {
-    cwd: input.cwd,
-    source: input.source,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    started_at: new Date().toISOString(),
-  });
+// Log the session start with structured data
+await log("SessionStart", input.session_id, {
+  cwd: input.cwd,
+  source: input.source,
+  transcript_path: input.transcript_path,
+  permission_mode: input.permission_mode,
+  started_at: new Date().toISOString(),
+});
 
-  // Build the output response
-  // Optionally inject context at session start
-  const output: SyncHookJSONOutput = {
-    continue: true,
-    hookSpecificOutput: {
-      hookEventName: "SessionStart",
-      additionalContext: `Session started (${input.source}) at ${new Date().toISOString()}`,
-    },
-  };
+// Build the output response
+// Optionally inject context at session start
+const output: SyncHookJSONOutput = {
+  continue: true,
+  hookSpecificOutput: {
+    hookEventName: "SessionStart",
+    additionalContext: `Session started (${input.source}) at ${new Date().toISOString()}`,
+  },
+};
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
-
-// Execute the hook
-main().catch(console.error);
+// Write JSON response to stdout
+writeOutput(output);
