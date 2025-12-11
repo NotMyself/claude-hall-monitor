@@ -27,18 +27,32 @@
 
       <!-- Main Content -->
       <main>
-        <!-- TabContainer and LogViewer components will go here -->
-        <p>Loading...</p>
+        <tab-container
+          v-model:active-tab="currentTab"
+          :tabs="tabs"
+        >
+          <template #logs>
+            <log-viewer :entries="entries"></log-viewer>
+          </template>
+
+          <!-- Future tabs would go here -->
+        </tab-container>
       </main>
 
       <!-- Footer -->
       <footer class="footer">
         <div class="connection-status">
-          <span class="status-dot" :class="{ connected: isConnected }"></span>
+          <span
+            class="status-dot"
+            :class="{ connected: isConnected }"
+          ></span>
           <span>{{ connectionText }}</span>
+          <span v-if="lastHeartbeat" class="heartbeat">
+            ({{ formatHeartbeat }})
+          </span>
         </div>
         <div class="entry-count">
-          {{ entries.length }} entries
+          {{ entries.length }} total entries
         </div>
       </footer>
     </div>
@@ -61,6 +75,11 @@
         let eventSource = null;
         let reconnectTimeout = null;
 
+        const tabs = [
+          { id: 'logs', label: 'Event Log' },
+          // Future: { id: 'analytics', label: 'Analytics' },
+        ];
+
         const connectionText = computed(() => {
           if (isConnected.value) {
             return 'Connected';
@@ -69,6 +88,21 @@
             return `Reconnecting (${reconnectAttempts.value})...`;
           }
           return 'Disconnected';
+        });
+
+        const formatHeartbeat = computed(() => {
+          if (!lastHeartbeat.value) return '';
+          try {
+            const date = new Date(lastHeartbeat.value);
+            return date.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false,
+            });
+          } catch {
+            return '';
+          }
         });
 
         function connect() {
@@ -181,6 +215,8 @@
           connectionText,
           lastHeartbeat,
           currentTab,
+          tabs,
+          formatHeartbeat,
         };
       },
     });

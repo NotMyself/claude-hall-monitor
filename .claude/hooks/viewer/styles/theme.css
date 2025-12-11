@@ -283,6 +283,11 @@ body {
   background: #10B981;
 }
 
+.heartbeat {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
 /* ===== Empty State ===== */
 .empty-state {
   text-align: center;
