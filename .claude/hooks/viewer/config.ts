@@ -23,8 +23,13 @@ export const PATHS = {
   /** Directory containing viewer files */
   VIEWER_DIR: import.meta.dir,
 
-  /** Path to hooks-log.txt (one level up from viewer/) */
-  LOG_FILE: resolve(import.meta.dir, "..", "hooks-log.txt"),
+  /** Directory containing session log files */
+  LOGS_DIR: resolve(import.meta.dir, "..", "logs"),
+
+  /** Get path to a session-specific log file */
+  getSessionLogPath(session_id: string): string {
+    return join(this.LOGS_DIR, `${session_id}.txt`);
+  },
 
   /** Path to index.html */
   INDEX_HTML: join(import.meta.dir, "index.html"),
@@ -32,6 +37,11 @@ export const PATHS = {
   /** Path to styles directory */
   STYLES_DIR: join(import.meta.dir, "styles"),
 } as const;
+
+/**
+ * Environment variable for current session ID
+ */
+export const CURRENT_SESSION_ENV = "CLAUDE_HOOKS_VIEWER_SESSION";
 
 /**
  * SSE (Server-Sent Events) configuration
