@@ -345,6 +345,107 @@
       `
     });
 
+    // ===== EventFilterDropdown Component =====
+    app.component('event-filter-dropdown', {
+      props: {
+        modelValue: {
+          type: Array,
+          default: () => []
+        },
+        eventTypes: {
+          type: Array,
+          required: true
+        }
+      },
+      data() {
+        return {
+          isOpen: false
+        };
+      },
+      computed: {
+        buttonLabel() {
+          if (this.modelValue.length === 0) {
+            return 'No Events';
+          }
+          if (this.modelValue.length === this.eventTypes.length) {
+            return 'All Events';
+          }
+          if (this.modelValue.length === 1) {
+            return this.modelValue[0];
+          }
+          return `${this.modelValue.length} Events`;
+        }
+      },
+      methods: {
+        toggle() {
+          this.isOpen = !this.isOpen;
+        },
+        close() {
+          this.isOpen = false;
+        },
+        isSelected(event) {
+          return this.modelValue.includes(event);
+        },
+        toggleEvent(event) {
+          const newValue = this.isSelected(event)
+            ? this.modelValue.filter(e => e !== event)
+            : [...this.modelValue, event];
+          this.$emit('update:modelValue', newValue);
+        },
+        selectAll() {
+          this.$emit('update:modelValue', [...this.eventTypes]);
+        },
+        clearAll() {
+          this.$emit('update:modelValue', []);
+        },
+        handleClickOutside(event) {
+          if (this.$el && !this.$el.contains(event.target)) {
+            this.close();
+          }
+        }
+      },
+      mounted() {
+        document.addEventListener('click', this.handleClickOutside);
+      },
+      beforeDestroy() {
+        document.removeEventListener('click', this.handleClickOutside);
+      },
+      template: `
+        <div class="event-dropdown">
+          <button
+            type="button"
+            class="event-dropdown-trigger"
+            @click.stop="toggle"
+          >
+            {{ buttonLabel }}
+            <span class="dropdown-arrow">{{ isOpen ? '▲' : '▼' }}</span>
+          </button>
+          <div v-if="isOpen" class="event-dropdown-panel">
+            <div class="event-dropdown-header">
+              <button type="button" @click="selectAll">Select All</button>
+              <button type="button" @click="clearAll">Clear</button>
+            </div>
+            <div class="event-dropdown-list">
+              <label
+                v-for="event in eventTypes"
+                :key="event"
+                class="event-checkbox"
+              >
+                <input
+                  type="checkbox"
+                  :checked="isSelected(event)"
+                  @change="toggleEvent(event)"
+                />
+                <span class="event-badge" :class="'badge-' + event.toLowerCase()">
+                  {{ event }}
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      `
+    });
+
     // ===== FilterBar Component =====
     app.component('filter-bar', {
       props: {
@@ -386,16 +487,11 @@
             @input="onSearchInput"
           />
 
-          <select
-            multiple
-            :value="modelValue.eventTypes"
-            @change="onEventTypesChange"
-            class="event-select"
-          >
-            <option v-for="type in eventTypes" :key="type" :value="type">
-              {{ type }}
-            </option>
-          </select>
+          <event-filter-dropdown
+            :model-value="modelValue.eventTypes"
+            :event-types="eventTypes"
+            @update:model-value="emit({ eventTypes: $event })"
+          />
 
           <button @click="clearFilters" :disabled="!hasFilters">
             Clear Filters
@@ -442,10 +538,6 @@
           this.searchTimeout = setTimeout(() => {
             this.emit({ search: e.target.value });
           }, 300);
-        },
-        onEventTypesChange(e) {
-          const selected = Array.from(e.target.selectedOptions).map(o => o.value);
-          this.emit({ eventTypes: selected });
         },
         clearFilters() {
           this.emit({
