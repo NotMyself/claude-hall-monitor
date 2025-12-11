@@ -449,8 +449,51 @@
       },
     });
 
-    // Components to be registered in subsequent features:
-    // - 14-tabcontainer: app.component('tab-container', {...})
+    // ===== TabContainer Component =====
+    app.component('tab-container', {
+      props: {
+        tabs: {
+          type: Array,
+          default: () => [
+            { id: 'logs', label: 'Event Log' },
+            // Future tabs:
+            // { id: 'analytics', label: 'Analytics' },
+            // { id: 'sessions', label: 'Sessions' },
+          ],
+        },
+        activeTab: {
+          type: String,
+          default: 'logs',
+        },
+      },
+      emits: ['update:activeTab'],
+      template: `
+        <div class="tab-container">
+          <nav class="tabs">
+            <button
+              v-for="tab in tabs"
+              :key="tab.id"
+              class="tab"
+              :class="{ active: activeTab === tab.id }"
+              @click="selectTab(tab.id)"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+
+          <div class="tab-content">
+            <slot :name="activeTab">
+              <slot></slot>
+            </slot>
+          </div>
+        </div>
+      `,
+      methods: {
+        selectTab(id) {
+          this.$emit('update:activeTab', id);
+        },
+      },
+    });
 
     // Mount the app
     app.mount('#app');

@@ -382,3 +382,14 @@ body {
   background: var(--border);
   border-radius: 4px;
 }
+
+/* ===== TabContainer Styles ===== */
+.tab-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.tab-content {
+  flex: 1;
+  min-height: 0;
+}
