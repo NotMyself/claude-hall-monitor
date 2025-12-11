@@ -1,6 +1,6 @@
-import { SERVER_CONFIG, PATHS, SSE_CONFIG } from "./config";
+import { SERVER_CONFIG, PATHS, SSE_CONFIG, CURRENT_SESSION_ENV } from "./config";
 import { LogFileWatcher } from "./watcher";
-import type { LogEntry, SSEMessage } from "./types";
+import type { LogEntry, SSEMessage, SessionListResponse } from "./types";
 
 /**
  * MIME types for static files
@@ -17,6 +17,13 @@ const MIME_TYPES: Record<string, string> = {
  */
 const watcher = new LogFileWatcher();
 watcher.start();
+
+const currentSessionId = process.env[CURRENT_SESSION_ENV] || null;
+
+// Initialize watcher with current session if available
+if (currentSessionId) {
+  watcher.setSession(currentSessionId);
+}
 
 /**
  * Get MIME type from file extension
@@ -46,6 +53,18 @@ async function serveFile(path: string): Promise<Response> {
  */
 function formatSSE(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+}
+
+/**
+ * Handle sessions list request
+ */
+function handleSessionsList(): Response {
+  const sessions = LogFileWatcher.listSessions();
+  const response: SessionListResponse = {
+    sessions,
+    current_session: currentSessionId,
+  };
+  return Response.json(response);
 }
 
 /**
@@ -122,11 +141,24 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: GET /events -> SSE stream
   if (path === "/events" && request.method === "GET") {
+    const session = url.searchParams.get("session") || currentSessionId;
+    if (session && session !== watcher.getCurrentSessionId()) {
+      watcher.setSession(session);
+    }
     return handleSSE(request);
+  }
+
+  // Route: GET /api/sessions -> JSON list of sessions
+  if (path === "/api/sessions" && request.method === "GET") {
+    return handleSessionsList();
   }
 
   // Route: GET /api/entries -> JSON array of all entries
   if (path === "/api/entries" && request.method === "GET") {
+    const session = url.searchParams.get("session") || currentSessionId;
+    if (session && session !== watcher.getCurrentSessionId()) {
+      watcher.setSession(session);
+    }
     const entries = watcher.getAllEntries();
     return new Response(JSON.stringify(entries), {
       headers: {
