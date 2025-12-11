@@ -1,0 +1,121 @@
+{
+  "project": "session-based-logs",
+  "version": "1.0.0",
+  "features": [
+    {
+      "id": "F01",
+      "title": "Logger Path Updates",
+      "description": "Add LOGS_DIR constant, getLogFilePath(), ensureLogsDir(), and update log() to write per-session files",
+      "layer": 1,
+      "status": "completed",
+      "file": ".claude/hooks/utils/logger.ts",
+      "acceptance_criteria": [
+        "LOGS_DIR points to .claude/hooks/logs/",
+        "getLogFilePath(session_id) returns correct path",
+        "ensureLogsDir() creates directory if missing",
+        "log() writes to per-session file"
+      ],
+      "verification": "bun run .claude/hooks && ls .claude/hooks/logs/"
+    },
+    {
+      "id": "F02",
+      "title": "Config Constants",
+      "description": "Replace LOG_FILE with LOGS_DIR, add getSessionLogPath() and CURRENT_SESSION_ENV",
+      "layer": 1,
+      "status": "completed",
+      "file": ".claude/hooks/viewer/config.ts",
+      "acceptance_criteria": [
+        "PATHS.LOGS_DIR points to ../logs",
+        "PATHS.getSessionLogPath(id) returns correct path",
+        "CURRENT_SESSION_ENV constant defined"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit"
+    },
+    {
+      "id": "F03",
+      "title": "Session Types",
+      "description": "Add SessionInfo and SessionListResponse interfaces",
+      "layer": 1,
+      "status": "completed",
+      "file": ".claude/hooks/viewer/types.ts",
+      "acceptance_criteria": [
+        "SessionInfo interface with all fields",
+        "SessionListResponse interface defined"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit"
+    },
+    {
+      "id": "F04",
+      "title": "Watcher Session Support",
+      "description": "Refactor LogFileWatcher for session-aware watching with setSession() and listSessions()",
+      "layer": 2,
+      "status": "completed",
+      "file": ".claude/hooks/viewer/watcher.ts",
+      "acceptance_criteria": [
+        "currentSessionId property added",
+        "setSession(id) switches watched file",
+        "listSessions() returns all session metadata",
+        "getLogFilePath() uses current session"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit"
+    },
+    {
+      "id": "F05",
+      "title": "Server API Endpoints",
+      "description": "Add /api/sessions endpoint, update /api/entries and /events with session filter",
+      "layer": 3,
+      "status": "completed",
+      "file": ".claude/hooks/viewer/server.ts",
+      "acceptance_criteria": [
+        "GET /api/sessions returns session list",
+        "GET /api/entries?session=id filters correctly",
+        "GET /events?session=id streams correct session",
+        "Default to current session from env"
+      ],
+      "verification": "curl http://localhost:3456/api/sessions"
+    },
+    {
+      "id": "F06",
+      "title": "Frontend Session Selector",
+      "description": "Add session-selector component and wire up SSE reconnection on session change",
+      "layer": 3,
+      "status": "completed",
+      "file": ".claude/hooks/viewer/index.html",
+      "acceptance_criteria": [
+        "sessions ref populated on mount",
+        "Session selector shows all sessions",
+        "Current session marked with indicator",
+        "Switching session reconnects SSE"
+      ],
+      "verification": "Manual browser test"
+    },
+    {
+      "id": "F07",
+      "title": "Session Start Env Pass",
+      "description": "Pass CLAUDE_HOOKS_VIEWER_SESSION env var when spawning viewer",
+      "layer": 2,
+      "status": "completed",
+      "file": ".claude/hooks/session-start.ts",
+      "acceptance_criteria": [
+        "spawn() includes env with session ID",
+        "Viewer receives correct session"
+      ],
+      "verification": "Start new session, check viewer defaults to it"
+    },
+    {
+      "id": "F08",
+      "title": "E2E Validation",
+      "description": "Full integration test of session-based logging flow",
+      "layer": 4,
+      "status": "completed",
+      "file": null,
+      "acceptance_criteria": [
+        "New session creates file in logs/",
+        "Viewer shows current session",
+        "Session selector lists all sessions",
+        "Switching works correctly"
+      ],
+      "verification": "bun run test && manual E2E"
+    }
+  ]
+}
