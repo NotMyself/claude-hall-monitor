@@ -65,3 +65,23 @@ export interface ConnectionStatus {
   lastHeartbeat: string | null;
   reconnectAttempts: number;
 }
+
+/**
+ * Session metadata information
+ */
+export interface SessionInfo {
+  session_id: string;
+  file_path: string;
+  first_entry: string;   // ISO timestamp
+  last_entry: string;    // ISO timestamp
+  entry_count: number;
+  size_bytes: number;
+}
+
+/**
+ * Response containing list of sessions
+ */
+export interface SessionListResponse {
+  sessions: SessionInfo[];
+  current_session: string | null;
+}
