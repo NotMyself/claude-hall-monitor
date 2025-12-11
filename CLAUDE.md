@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Claude Code hooks project using Bun as the JavaScript runtime on Windows. It implements all 12 Claude Code hooks with full functionality, structured JSONL logging, and comprehensive documentation.
+This is a Claude Code hooks project using Bun as the JavaScript runtime on Windows. It implements all 12 Claude Code hooks with full functionality, structured JSONL logging, a realtime log viewer web UI, and comprehensive test coverage.
 
 ## Commands
 
@@ -20,6 +20,21 @@ bun run .claude/hooks/user-prompt-submit.ts
 
 # View structured logs
 cat .claude/hooks/hooks-log.txt
+
+# Start the realtime log viewer (auto-starts on session startup)
+cd .claude/hooks && bun run viewer
+
+# Start viewer in development mode (with hot reload)
+cd .claude/hooks && bun run viewer:dev
+
+# Run tests
+cd .claude/hooks && bun run test
+
+# Run tests once (no watch)
+cd .claude/hooks && bun run test:run
+
+# Run tests with coverage
+cd .claude/hooks && bun run test:coverage
 ```
 
 ## Architecture
@@ -53,6 +68,33 @@ All hooks write to `.claude/hooks/hooks-log.txt` with this schema:
 {"timestamp":"2024-12-11T14:30:00.000Z","event":"PreToolUse","session_id":"abc123","data":{...}}
 ```
 
+### Realtime Log Viewer
+
+Located in `.claude/hooks/viewer/`. A web-based dashboard for viewing hook logs in realtime:
+
+- **Auto-start**: Launches automatically on session startup (port 3456)
+- **SSE Streaming**: Real-time log updates via Server-Sent Events
+- **Filtering**: Filter logs by event type
+- **Dark/Light Theme**: Toggle between themes
+- **Tab Support**: View different log categories
+
+Key files:
+- `viewer/server.ts` - Bun HTTP server with SSE endpoints
+- `viewer/watcher.ts` - File watcher for log changes
+- `viewer/index.html` - Vue.js single-file application
+- `viewer/styles/theme.css` - Theme styling
+- `viewer/config.ts` - Configuration constants
+- `viewer/types.ts` - TypeScript type definitions
+
+### Testing
+
+Tests are located in `.claude/hooks/viewer/__tests__/`:
+- `components.test.ts` - Vue component unit tests
+- `server.test.ts` - Server endpoint tests
+- `setup.ts` - Test environment setup with happy-dom
+
+Uses Vitest with happy-dom for browser API mocking.
+
 ## Implemented Hooks
 
 | Hook | File | Capabilities |
@@ -62,7 +104,7 @@ All hooks write to `.claude/hooks/hooks-log.txt` with this schema:
 | PostToolUse | `post-tool-use.ts` | Log results, inject context, modify MCP output |
 | PostToolUseFailure | `post-tool-use-failure.ts` | Log failures, provide recovery context |
 | Notification | `notification.ts` | Log system notifications |
-| SessionStart | `session-start.ts` | Log session start, inject welcome context |
+| SessionStart | `session-start.ts` | Log session start, inject welcome context, auto-start viewer |
 | SessionEnd | `session-end.ts` | Log session termination |
 | Stop | `stop.ts` | Log user interrupts |
 | SubagentStart | `subagent-start.ts` | Log subagent spawning, inject context |
@@ -87,3 +129,10 @@ Hooks can return JSON output to modify Claude Code behavior:
 - `@anthropic-ai/claude-agent-sdk` - Hook input/output type definitions
 - `@types/bun` - Bun runtime types
 - `typescript` - Type checking
+
+### Dev Dependencies (Testing)
+
+- `vitest` - Test runner
+- `@vitest/coverage-v8` - Code coverage
+- `@vue/test-utils` - Vue component testing utilities
+- `happy-dom` - Browser API mocking for tests
