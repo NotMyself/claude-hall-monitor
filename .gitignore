@@ -1,3 +1,3 @@
 .claude/hooks/bun.lock
 .claude/settings.local.json
-.claude/hooks/prompt-log.txt
+.claude/hooks/hooks-log.txt
