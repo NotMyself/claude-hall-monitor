@@ -645,7 +645,7 @@
             }
 
             return true;
-          });
+          }).slice().reverse();
         },
         hasFilters() {
           return (
@@ -659,18 +659,18 @@
         entryKey(entry) {
           return `${entry.timestamp}-${entry.event}-${entry.session_id}`;
         },
-        scrollToBottom() {
+        scrollToTop() {
           if (!this.autoScroll || !this.$refs.logList) return;
           this.$nextTick(() => {
             const list = this.$refs.logList;
-            list.scrollTop = list.scrollHeight;
+            list.scrollTop = 0;
           });
         },
       },
       watch: {
         entries: {
           handler() {
-            this.scrollToBottom();
+            this.scrollToTop();
           },
           deep: false,
         },
