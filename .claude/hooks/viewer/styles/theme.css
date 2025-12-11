@@ -184,12 +184,17 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s;
 }
 
 .theme-toggle:hover {
   background: var(--border);
+}
+
+.theme-label {
+  color: var(--text-primary);
 }
 
 /* ===== Tabs ===== */
