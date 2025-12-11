@@ -1,3 +1,109 @@
-<!-- UI will be implemented in features 08-16 -->
 <!DOCTYPE html>
-<html><head><title>Hook Viewer</title></head><body></body></html>
+<html lang="en" data-theme="system">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Hook Viewer</title>
+
+  <!-- Google Fonts: Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Theme CSS -->
+  <link rel="stylesheet" href="/styles/theme.css">
+
+  <!-- Vue 3 from CDN -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app">
+    <div class="app-container">
+      <!-- Header -->
+      <header class="header">
+        <h1>Hook Viewer</h1>
+        <!-- ThemeToggle component will go here -->
+        <div class="theme-toggle" @click="cycleTheme">
+          {{ themeIcon }}
+        </div>
+      </header>
+
+      <!-- Main Content -->
+      <main>
+        <!-- TabContainer and LogViewer components will go here -->
+        <p>Loading...</p>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="connection-status">
+          <span class="status-dot" :class="{ connected: isConnected }"></span>
+          <span>{{ connectionText }}</span>
+        </div>
+        <div class="entry-count">
+          {{ entries.length }} entries
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+    // ===== Vue App =====
+    const app = createApp({
+      setup() {
+        // Theme state
+        const theme = ref(localStorage.getItem('theme') || 'system');
+        const themeIcon = computed(() => {
+          const icons = { light: '☀️', dark: '🌙', system: '💻' };
+          return icons[theme.value];
+        });
+
+        function cycleTheme() {
+          const modes = ['light', 'dark', 'system'];
+          const idx = modes.indexOf(theme.value);
+          theme.value = modes[(idx + 1) % modes.length];
+          localStorage.setItem('theme', theme.value);
+          document.documentElement.setAttribute('data-theme', theme.value);
+        }
+
+        // Connection state (placeholder for SSE)
+        const isConnected = ref(false);
+        const connectionText = computed(() =>
+          isConnected.value ? 'Connected' : 'Disconnected'
+        );
+
+        // Entries state (placeholder)
+        const entries = ref([]);
+
+        // Initialize theme on mount
+        onMounted(() => {
+          document.documentElement.setAttribute('data-theme', theme.value);
+        });
+
+        return {
+          theme,
+          themeIcon,
+          cycleTheme,
+          isConnected,
+          connectionText,
+          entries,
+        };
+      },
+    });
+
+    // ===== Component Registration (placeholders) =====
+    // Components will be registered in subsequent features:
+    // - 09-eventbadge: app.component('event-badge', {...})
+    // - 10-themetoggle: app.component('theme-toggle', {...})
+    // - 11-filterbar: app.component('filter-bar', {...})
+    // - 12-logentry: app.component('log-entry', {...})
+    // - 13-logviewer: app.component('log-viewer', {...})
+    // - 14-tabcontainer: app.component('tab-container', {...})
+
+    // Mount the app
+    app.mount('#app');
+  </script>
+</body>
+</html>
