@@ -40,7 +40,8 @@
  * ```
  */
 
-import { appendFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { mkdir, appendFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -53,8 +54,42 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 /**
  * Path to the unified hooks log file.
  * Located at `.claude/hooks/hooks-log.txt` relative to the hooks directory.
+ * @deprecated Use getLogFilePath(session_id) for per-session logs instead.
  */
 export const LOG_FILE_PATH = join(__dirname, "..", "hooks-log.txt");
+
+/**
+ * Directory containing per-session log files.
+ * Located at `.claude/hooks/logs/` relative to the hooks directory.
+ */
+export const LOGS_DIR = join(__dirname, "..", "logs");
+
+/**
+ * Returns the path to the log file for a specific session.
+ *
+ * @param session_id - Unique session identifier
+ * @returns Path to the session-specific log file (e.g., `.claude/hooks/logs/abc123.txt`)
+ *
+ * @example Get log file path for a session
+ * ```typescript
+ * const logPath = getLogFilePath('session-abc123');
+ * // Returns: C:\Users\...\claude\claude-bun-win11-hooks\.claude\hooks\logs\session-abc123.txt
+ * ```
+ */
+export function getLogFilePath(session_id: string): string {
+  return join(LOGS_DIR, `${session_id}.txt`);
+}
+
+/**
+ * Ensures the logs directory exists, creating it if necessary.
+ *
+ * @returns Promise that resolves when the directory is confirmed to exist
+ */
+async function ensureLogsDir(): Promise<void> {
+  if (!existsSync(LOGS_DIR)) {
+    await mkdir(LOGS_DIR, { recursive: true });
+  }
+}
 
 /**
  * Structured log entry format for JSONL output.
@@ -104,6 +139,8 @@ export async function log(
   session_id: string,
   data: Record<string, unknown>
 ): Promise<void> {
+  await ensureLogsDir();
+  const filePath = getLogFilePath(session_id);
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     event,
@@ -113,7 +150,7 @@ export async function log(
 
   const line = JSON.stringify(entry) + "\n";
 
-  await appendFile(LOG_FILE_PATH, line, "utf-8");
+  await appendFile(filePath, line, "utf-8");
 }
 
 /**
