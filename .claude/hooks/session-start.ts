@@ -66,6 +66,7 @@ import {
   type SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
 import { spawn } from "bun";
+import { mkdir } from "fs/promises";
 import { join } from "path";
 import { log, readInput, writeOutput } from "./utils/logger.ts";
 import { CURRENT_SESSION_ENV } from "./viewer/config";
@@ -85,6 +86,39 @@ function toDockerPath(windowsPath: string): string {
   return windowsPath
     .replace(/\\/g, "/")
     .replace(/^([A-Za-z]):/, "/$1");
+}
+
+/**
+ * Configure Playwright MCP to save screenshots to the current project's
+ * screenshots directory. Creates the directory if it doesn't exist.
+ *
+ * This runs the Docker MCP CLI to set the outputDir configuration.
+ * Fails silently since screenshot location is non-critical.
+ *
+ * @param cwd - Current working directory (Windows path)
+ */
+async function configurePlaywrightScreenshots(cwd: string): Promise<void> {
+  const screenshotsDir = join(cwd, "screenshots");
+  const dockerPath = toDockerPath(screenshotsDir);
+
+  try {
+    // Create screenshots directory if it doesn't exist
+    await mkdir(screenshotsDir, { recursive: true });
+
+    // Configure Playwright MCP via Docker CLI
+    const proc = spawn([
+      "docker", "mcp", "config", "set",
+      "playwright", "outputDir", dockerPath
+    ], {
+      stdout: "ignore",
+      stderr: "ignore",
+    });
+
+    await proc.exited;
+  } catch {
+    // Fail silently - screenshot location is non-critical
+    console.error("Failed to configure Playwright screenshots directory");
+  }
 }
 
 /**
