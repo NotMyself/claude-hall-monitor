@@ -191,6 +191,9 @@ async function main(): Promise<void> {
 
   // === Start viewer on fresh startup ===
   if (input.source === "startup") {
+    // Configure Playwright MCP to save screenshots to project directory
+    await configurePlaywrightScreenshots(input.cwd);
+
     const viewerRunning = await isViewerRunning();
 
     if (!viewerRunning) {
