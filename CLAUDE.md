@@ -21,7 +21,7 @@ bun run .claude/hooks/handlers/user-prompt-submit.ts
 # View structured logs
 cat .claude/hooks/hooks-log.txt
 
-# Start the realtime log viewer (auto-starts on session startup)
+# Start the realtime log viewer (auto-starts on any session event, auto-stops on exit)
 cd .claude/hooks && bun run viewer
 
 # Start viewer in development mode (with hot reload)
@@ -72,7 +72,8 @@ All hooks write to `.claude/hooks/hooks-log.txt` with this schema:
 
 Located in `.claude/hooks/viewer/`. A web-based dashboard for viewing hook logs in realtime:
 
-- **Auto-start**: Launches automatically on session startup (port 3456)
+- **Auto-start**: Launches automatically on any session event (startup, resume, clear, compact) on port 3456
+- **Auto-shutdown**: Gracefully shuts down when Claude Code exits
 - **SSE Streaming**: Real-time log updates via Server-Sent Events
 - **Filtering**: Filter logs by event type
 - **Dark/Light Theme**: Toggle between themes
@@ -104,8 +105,8 @@ Uses Vitest with happy-dom for browser API mocking.
 | PostToolUse | `handlers/post-tool-use.ts` | Log results, inject context, modify MCP output |
 | PostToolUseFailure | `handlers/post-tool-use-failure.ts` | Log failures, provide recovery context |
 | Notification | `handlers/notification.ts` | Log system notifications |
-| SessionStart | `handlers/session-start.ts` | Log session start, inject welcome context, auto-start viewer |
-| SessionEnd | `handlers/session-end.ts` | Log session termination |
+| SessionStart | `handlers/session-start.ts` | Log session start, inject welcome context, auto-start viewer on all session types |
+| SessionEnd | `handlers/session-end.ts` | Log session termination, gracefully shut down viewer |
 | Stop | `handlers/stop.ts` | Log user interrupts |
 | SubagentStart | `handlers/subagent-start.ts` | Log subagent spawning, inject context |
 | SubagentStop | `handlers/subagent-stop.ts` | Log subagent completion |
