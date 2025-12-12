@@ -1,12 +1,12 @@
 # Claude Code Hooks with Bun
 
-A complete implementation of all 12 Claude Code hooks using [Bun](https://bun.sh/) as the JavaScript runtime, featuring structured JSONL logging and the Claude Dashboard - a realtime web-based log viewer.
+A complete implementation of all 12 Claude Code hooks using [Bun](https://bun.sh/) as the JavaScript runtime, featuring structured JSONL logging and Claude Hall Monitor - a realtime web-based log viewer.
 
 ## Features
 
 - All 12 Claude Code hooks implemented with full TypeScript type safety
 - Structured JSONL logging for all hook events
-- Claude Dashboard web UI with SSE streaming for realtime log viewing
+- Claude Hall Monitor web UI with SSE streaming for realtime log viewing
 - Dark/light theme support
 - Event filtering and categorization
 - Comprehensive test coverage
@@ -31,11 +31,11 @@ cd .claude/hooks && bun install
 
 ### 2. Start Using
 
-The hooks are automatically active when you run Claude Code in this directory. The Claude Dashboard will automatically launch at http://localhost:3456 and gracefully shut down when you exit.
+The hooks are automatically active when you run Claude Code in this directory. Claude Hall Monitor will automatically launch at http://localhost:3456 and gracefully shut down when you exit.
 
-## Claude Dashboard (Log Viewer)
+## Claude Hall Monitor (Log Viewer)
 
-The Claude Dashboard provides a web-based interface to monitor hook activity in realtime:
+Claude Hall Monitor provides a web-based interface to monitor hook activity in realtime:
 
 - **Auto-start**: Launches automatically on any session event (startup, resume, clear, compact)
 - **Auto-shutdown**: Gracefully shuts down when Claude Code exits
@@ -49,7 +49,7 @@ The Claude Dashboard provides a web-based interface to monitor hook activity in 
 ```bash
 cd .claude/hooks
 
-# Start the dashboard
+# Start the viewer
 bun run viewer
 
 # Or with hot reload for development
@@ -65,8 +65,8 @@ bun run viewer:dev
 | **PostToolUse** | Runs after a tool completes. Can inject context or modify MCP output. |
 | **PostToolUseFailure** | Triggered when a tool fails. Can provide recovery context. |
 | **Notification** | Handles system notifications from Claude Code. |
-| **SessionStart** | Runs on session start/resume/clear/compact. Auto-starts the Claude Dashboard. |
-| **SessionEnd** | Triggered when a session ends. Gracefully shuts down the Dashboard. |
+| **SessionStart** | Runs on session start/resume/clear/compact. Auto-starts Claude Hall Monitor. |
+| **SessionEnd** | Triggered when a session ends. Gracefully shuts down Claude Hall Monitor. |
 | **Stop** | Handles user interrupts (Ctrl+C, Escape). |
 | **SubagentStart** | Runs when a subagent is spawned. |
 | **SubagentStop** | Triggered when a subagent completes. |
@@ -110,7 +110,7 @@ All hooks write to `.claude/hooks/hooks-log.txt` in JSONL format:
         ├── server.ts          # Bun HTTP server
         ├── watcher.ts         # File watcher for logs
         ├── index.html         # Vue.js web UI
-        ├── logo.svg           # Dashboard logo
+        ├── logo.svg           # Hall Monitor logo
         ├── config.ts          # Configuration
         ├── types.ts           # TypeScript types
         ├── vitest.config.ts   # Test configuration
