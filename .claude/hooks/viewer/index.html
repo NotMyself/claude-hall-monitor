@@ -3,7 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Claude Dashboard</title>
+  <title>Claude Hall Monitor</title>
+  <link rel="icon" type="image/svg+xml" href="/logo.svg">
 
   <!-- Google Fonts: Poppins -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,7 +24,7 @@
       <header class="header">
         <div class="header-brand">
           <img src="/logo.svg" alt="Logo" class="header-logo" />
-          <h1>Claude Dashboard</h1>
+          <h1>Claude Hall Monitor</h1>
         </div>
         <theme-toggle></theme-toggle>
       </header>
@@ -34,6 +35,13 @@
           v-model:active-tab="currentTab"
           :tabs="tabs"
         >
+          <template #dashboard>
+            <dashboard-view
+              :data="dashboardData"
+              :loading="dashboardLoading"
+            ></dashboard-view>
+          </template>
+
           <template #logs>
             <log-viewer
               :entries="entries"
@@ -41,13 +49,6 @@
               :current-session="currentSession"
               v-model:selected-session="selectedSession"
             ></log-viewer>
-          </template>
-
-          <template #dashboard>
-            <dashboard-view
-              :data="dashboardData"
-              :loading="dashboardLoading"
-            ></dashboard-view>
           </template>
         </tab-container>
       </main>
@@ -82,7 +83,7 @@
         const isConnected = ref(false);
         const lastHeartbeat = ref(null);
         const reconnectAttempts = ref(0);
-        const currentTab = ref('logs');
+        const currentTab = ref('dashboard');
         const sessions = ref([]);
         const currentSession = ref(null);
         const selectedSession = ref(null);
@@ -92,8 +93,8 @@
         let reconnectTimeout = null;
 
         const tabs = [
-          { id: 'logs', label: 'Hook Log' },
           { id: 'dashboard', label: 'Dashboard' },
+          { id: 'logs', label: 'Hook Log' },
         ];
 
         const connectionText = computed(() => {
@@ -282,6 +283,9 @@
         onMounted(() => {
           fetchSessions();
           connect();
+          // Dashboard is the default tab, so start polling immediately
+          fetchDashboard();
+          dashboardPollInterval = setInterval(fetchDashboard, 5000);
         });
 
         onUnmounted(() => {
@@ -570,6 +574,7 @@
             'SubagentStop',
             'PreCompact',
             'PermissionRequest',
+            'Heartbeat',
           ],
         };
       },
@@ -863,6 +868,11 @@
               if (!this.filters.eventTypes.includes(entry.event)) {
                 return false;
               }
+            } else {
+              // Hide Heartbeat events by default (they clutter the log)
+              if (entry.event === 'Heartbeat') {
+                return false;
+              }
             }
 
             // Session filter
@@ -959,6 +969,111 @@
         data: { type: Object, default: null },
         loading: { type: Boolean, default: false },
       },
+      data() {
+        return {
+          showEndedSessions: false,
+          selectedTimespan: 'today',
+          collapsedGroups: {
+            commands: true,
+            hooks: true,
+            skills: true,
+            mcpServers: true,
+          },
+          timespanOptions: [
+            { value: 'today', label: 'Today' },
+            { value: 'yesterday', label: 'Yesterday' },
+            { value: 'thisWeek', label: 'This Week' },
+            { value: 'lastWeek', label: 'Last Week' },
+          ],
+        };
+      },
+      computed: {
+        filteredSessions() {
+          if (!this.data || !this.data.sessions) return [];
+          return this.data.sessions.filter(session => {
+            // Filter by ended status
+            if (!this.showEndedSessions && session.status === 'ended') {
+              return false;
+            }
+            // Filter by timespan
+            if (!this.isInTimespan(session)) {
+              return false;
+            }
+            return true;
+          });
+        },
+      },
+      methods: {
+        toggleGroup(group) {
+          this.collapsedGroups[group] = !this.collapsedGroups[group];
+        },
+        isInTimespan(session) {
+          const lastActivity = session.last_heartbeat || session.first_entry;
+          if (!lastActivity) return true;
+
+          const activityDate = new Date(lastActivity);
+          const now = new Date();
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          const thisWeekStart = new Date(today);
+          thisWeekStart.setDate(thisWeekStart.getDate() - thisWeekStart.getDay());
+          const lastWeekStart = new Date(thisWeekStart);
+          lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+          const lastWeekEnd = new Date(thisWeekStart);
+
+          switch (this.selectedTimespan) {
+            case 'today':
+              return activityDate >= today;
+            case 'yesterday':
+              return activityDate >= yesterday && activityDate < today;
+            case 'thisWeek':
+              return activityDate >= thisWeekStart;
+            case 'lastWeek':
+              return activityDate >= lastWeekStart && activityDate < thisWeekStart;
+            default:
+              return true;
+          }
+        },
+        formatTime(iso) {
+          try {
+            const date = new Date(iso);
+            return date.toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit',
+              hour12: false,
+            });
+          } catch {
+            return iso;
+          }
+        },
+        formatNumber(num) {
+          if (num == null) return '0';
+          if (num >= 1_000_000) {
+            return (num / 1_000_000).toFixed(1) + 'M';
+          }
+          if (num >= 1_000) {
+            return (num / 1_000).toFixed(1) + 'K';
+          }
+          return String(num);
+        },
+        formatModelName(model) {
+          // claude-opus-4-5-20251101 -> Opus 4.5
+          const match = model.match(/claude-(\w+)-(\d+)-(\d+)/);
+          if (match) {
+            const name = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+            return name + ' ' + match[2] + '.' + match[3];
+          }
+          return model;
+        },
+        truncateCommand(cmd) {
+          if (!cmd) return '';
+          // Show last part of command path
+          const parts = cmd.split(/[/\\]/);
+          return parts[parts.length - 1] || cmd;
+        },
+      },
       template: `
     <div class="dashboard">
       <div v-if="loading && !data" class="dashboard-loading">
@@ -968,10 +1083,23 @@
       <div v-else-if="data" class="dashboard-content">
         <!-- Sessions Section -->
         <section class="dashboard-section">
-          <h2>Sessions</h2>
-          <div v-if="data.sessions.length > 0" class="session-grid">
+          <div class="section-header">
+            <h2>Sessions</h2>
+            <div class="section-controls">
+              <select v-model="selectedTimespan" class="timespan-select">
+                <option v-for="opt in timespanOptions" :key="opt.value" :value="opt.value">
+                  {{ opt.label }}
+                </option>
+              </select>
+              <label class="show-ended-toggle">
+                <input type="checkbox" v-model="showEndedSessions" />
+                Show ended
+              </label>
+            </div>
+          </div>
+          <div v-if="filteredSessions.length > 0" class="session-grid">
             <div
-              v-for="session in data.sessions"
+              v-for="session in filteredSessions"
               :key="session.session_id"
               class="session-card"
               :class="'status-' + session.status"
@@ -1002,7 +1130,7 @@
             </div>
           </div>
           <div v-else class="config-list">
-            <div class="empty">No sessions found</div>
+            <div class="empty">No sessions found for selected timespan</div>
           </div>
         </section>
 
@@ -1043,53 +1171,73 @@
           <h2>Configuration</h2>
 
           <!-- Commands -->
-          <div class="config-group">
-            <h3>Commands ({{ data.commands.length }})</h3>
-            <div class="config-list">
-              <div v-for="cmd in data.commands" :key="cmd.name" class="config-item">
-                <span class="config-name">/{{ cmd.name }}</span>
-                <span class="config-desc">{{ cmd.description || 'No description' }}</span>
+          <div class="config-group" :class="{ collapsed: collapsedGroups.commands }">
+            <div class="config-group-header" @click="toggleGroup('commands')">
+              <span class="collapse-icon">{{ collapsedGroups.commands ? '▶' : '▼' }}</span>
+              <h3>Commands ({{ data.commands.length }})</h3>
+            </div>
+            <div v-show="!collapsedGroups.commands" class="config-group-content">
+              <div class="config-list">
+                <div v-for="cmd in data.commands" :key="cmd.name" class="config-item">
+                  <span class="config-name">/{{ cmd.name }}</span>
+                  <span class="config-desc">{{ cmd.description || 'No description' }}</span>
+                </div>
+                <div v-if="data.commands.length === 0" class="empty">No commands configured</div>
               </div>
-              <div v-if="data.commands.length === 0" class="empty">No commands configured</div>
             </div>
           </div>
 
           <!-- Hooks -->
-          <div class="config-group">
-            <h3>Hooks ({{ data.hooks.length }})</h3>
-            <div class="config-list">
-              <div
-                v-for="(hook, index) in data.hooks"
-                :key="hook.eventName + index"
-                class="config-item"
-              >
-                <span class="config-name">{{ hook.eventName }}</span>
-                <span class="config-desc">{{ truncateCommand(hook.command) }}</span>
+          <div class="config-group" :class="{ collapsed: collapsedGroups.hooks }">
+            <div class="config-group-header" @click="toggleGroup('hooks')">
+              <span class="collapse-icon">{{ collapsedGroups.hooks ? '▶' : '▼' }}</span>
+              <h3>Hooks ({{ data.hooks.length }})</h3>
+            </div>
+            <div v-show="!collapsedGroups.hooks" class="config-group-content">
+              <div class="config-list">
+                <div
+                  v-for="(hook, index) in data.hooks"
+                  :key="hook.eventName + index"
+                  class="config-item"
+                >
+                  <span class="config-name">{{ hook.eventName }}</span>
+                  <span class="config-desc">{{ truncateCommand(hook.command) }}</span>
+                </div>
+                <div v-if="data.hooks.length === 0" class="empty">No hooks configured</div>
               </div>
-              <div v-if="data.hooks.length === 0" class="empty">No hooks configured</div>
             </div>
           </div>
 
           <!-- Skills -->
-          <div class="config-group">
-            <h3>Skills ({{ data.skills.length }})</h3>
-            <div class="config-list">
-              <div v-for="skill in data.skills" :key="skill.name" class="config-item">
-                <span class="config-name">{{ skill.name }}</span>
-                <span class="config-desc">{{ skill.description || 'No description' }}</span>
+          <div class="config-group" :class="{ collapsed: collapsedGroups.skills }">
+            <div class="config-group-header" @click="toggleGroup('skills')">
+              <span class="collapse-icon">{{ collapsedGroups.skills ? '▶' : '▼' }}</span>
+              <h3>Skills ({{ data.skills.length }})</h3>
+            </div>
+            <div v-show="!collapsedGroups.skills" class="config-group-content">
+              <div class="config-list">
+                <div v-for="skill in data.skills" :key="skill.name" class="config-item">
+                  <span class="config-name">{{ skill.name }}</span>
+                  <span class="config-desc">{{ skill.description || 'No description' }}</span>
+                </div>
+                <div v-if="data.skills.length === 0" class="empty">No skills configured</div>
               </div>
-              <div v-if="data.skills.length === 0" class="empty">No skills configured</div>
             </div>
           </div>
 
           <!-- MCP Servers -->
-          <div class="config-group">
-            <h3>MCP Servers ({{ data.mcpServers.length }})</h3>
-            <div class="config-list">
-              <div v-for="server in data.mcpServers" :key="server" class="config-item">
-                <span class="config-name">{{ server }}</span>
+          <div class="config-group" :class="{ collapsed: collapsedGroups.mcpServers }">
+            <div class="config-group-header" @click="toggleGroup('mcpServers')">
+              <span class="collapse-icon">{{ collapsedGroups.mcpServers ? '▶' : '▼' }}</span>
+              <h3>MCP Servers ({{ data.mcpServers.length }})</h3>
+            </div>
+            <div v-show="!collapsedGroups.mcpServers" class="config-group-content">
+              <div class="config-list">
+                <div v-for="server in data.mcpServers" :key="server" class="config-item">
+                  <span class="config-name">{{ server }}</span>
+                </div>
+                <div v-if="data.mcpServers.length === 0" class="empty">No MCP servers enabled</div>
               </div>
-              <div v-if="data.mcpServers.length === 0" class="empty">No MCP servers enabled</div>
             </div>
           </div>
         </section>
@@ -1101,46 +1249,6 @@
       </div>
     </div>
   `,
-      methods: {
-        formatTime(iso) {
-          try {
-            const date = new Date(iso);
-            return date.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false,
-            });
-          } catch {
-            return iso;
-          }
-        },
-        formatNumber(num) {
-          if (num == null) return '0';
-          if (num >= 1_000_000) {
-            return (num / 1_000_000).toFixed(1) + 'M';
-          }
-          if (num >= 1_000) {
-            return (num / 1_000).toFixed(1) + 'K';
-          }
-          return String(num);
-        },
-        formatModelName(model) {
-          // claude-opus-4-5-20251101 -> Opus 4.5
-          const match = model.match(/claude-(\w+)-(\d+)-(\d+)/);
-          if (match) {
-            const name = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-            return name + ' ' + match[2] + '.' + match[3];
-          }
-          return model;
-        },
-        truncateCommand(cmd) {
-          if (!cmd) return '';
-          // Show last part of command path
-          const parts = cmd.split(/[/\\]/);
-          return parts[parts.length - 1] || cmd;
-        },
-      },
     });
 
     // Mount the app

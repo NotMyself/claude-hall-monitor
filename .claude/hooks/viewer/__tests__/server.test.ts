@@ -73,11 +73,11 @@ describe('Server', () => {
       expect(html).toContain('vue');
     });
 
-    it('contains Claude Dashboard title', async () => {
+    it('contains Claude Hall Monitor title', async () => {
       const response = await fetch(BASE_URL);
       const html = await response.text();
 
-      expect(html).toContain('Claude Dashboard');
+      expect(html).toContain('Claude Hall Monitor');
     });
   });
 

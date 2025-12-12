@@ -106,7 +106,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].status).toBe("ended");
+      expect(data.sessions[0]!.status).toBe("ended");
     });
 
     it("returns 'active' when SessionEnd followed by SessionStart", async () => {
@@ -128,7 +128,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].status).toBe("active");
+      expect(data.sessions[0]!.status).toBe("active");
     });
 
     it("returns 'inactive' when last activity exceeds timeout", async () => {
@@ -149,7 +149,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].status).toBe("inactive");
+      expect(data.sessions[0]!.status).toBe("inactive");
     });
 
     it("returns 'active' when recent activity within timeout", async () => {
@@ -170,7 +170,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].status).toBe("active");
+      expect(data.sessions[0]!.status).toBe("active");
     });
   });
 
@@ -204,7 +204,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].tool_call_count).toBe(3);
+      expect(data.sessions[0]!.tool_call_count).toBe(3);
     });
 
     it("counts messages correctly", async () => {
@@ -226,7 +226,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].message_count).toBe(2);
+      expect(data.sessions[0]!.message_count).toBe(2);
     });
 
     it("counts compactions correctly", async () => {
@@ -247,7 +247,7 @@ describe("DashboardService", () => {
 
       const data = await service.getData();
 
-      expect(data.sessions[0].compaction_count).toBe(1);
+      expect(data.sessions[0]!.compaction_count).toBe(1);
     });
   });
 
@@ -273,9 +273,9 @@ argument-hint: <arg>
       const data = await service.getData();
 
       expect(data.commands).toHaveLength(1);
-      expect(data.commands[0].name).toBe("test-cmd");
-      expect(data.commands[0].description).toBe("Test command description");
-      expect(data.commands[0].argumentHint).toBe("<arg>");
+      expect(data.commands[0]!.name).toBe("test-cmd");
+      expect(data.commands[0]!.description).toBe("Test command description");
+      expect(data.commands[0]!.argumentHint).toBe("<arg>");
     });
 
     it("parses skills from markdown frontmatter", async () => {
@@ -299,8 +299,8 @@ description: A test skill
       const data = await service.getData();
 
       expect(data.skills).toHaveLength(1);
-      expect(data.skills[0].name).toBe("Test Skill");
-      expect(data.skills[0].description).toBe("A test skill");
+      expect(data.skills[0]!.name).toBe("Test Skill");
+      expect(data.skills[0]!.description).toBe("A test skill");
     });
   });
 
