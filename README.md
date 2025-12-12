@@ -31,13 +31,14 @@ cd .claude/hooks && bun install
 
 ### 2. Start Using
 
-The hooks are automatically active when you run Claude Code in this directory. On session startup, the Claude Dashboard will automatically launch at http://localhost:3456.
+The hooks are automatically active when you run Claude Code in this directory. The Claude Dashboard will automatically launch at http://localhost:3456 and gracefully shut down when you exit.
 
 ## Claude Dashboard (Log Viewer)
 
 The Claude Dashboard provides a web-based interface to monitor hook activity in realtime:
 
-- **Auto-start**: Launches automatically when a Claude Code session starts
+- **Auto-start**: Launches automatically on any session event (startup, resume, clear, compact)
+- **Auto-shutdown**: Gracefully shuts down when Claude Code exits
 - **Live Updates**: Uses Server-Sent Events (SSE) for instant log streaming
 - **Filtering**: Filter logs by event type (PreToolUse, PostToolUse, etc.)
 - **Themes**: Toggle between dark and light themes
@@ -64,8 +65,8 @@ bun run viewer:dev
 | **PostToolUse** | Runs after a tool completes. Can inject context or modify MCP output. |
 | **PostToolUseFailure** | Triggered when a tool fails. Can provide recovery context. |
 | **Notification** | Handles system notifications from Claude Code. |
-| **SessionStart** | Runs when a session starts. Auto-starts the Claude Dashboard. |
-| **SessionEnd** | Triggered when a session ends. |
+| **SessionStart** | Runs on session start/resume/clear/compact. Auto-starts the Claude Dashboard. |
+| **SessionEnd** | Triggered when a session ends. Gracefully shuts down the Dashboard. |
 | **Stop** | Handles user interrupts (Ctrl+C, Escape). |
 | **SubagentStart** | Runs when a subagent is spawned. |
 | **SubagentStop** | Triggered when a subagent completes. |
