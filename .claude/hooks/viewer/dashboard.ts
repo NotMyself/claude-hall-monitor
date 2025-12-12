@@ -18,6 +18,23 @@ import type {
 } from "./types";
 import { LogFileWatcher } from "./watcher";
 
+/**
+ * Hook configuration entry from settings.json
+ */
+interface HookConfigEntry {
+  command: string;
+  type?: string;
+  timeout?: number;
+}
+
+/**
+ * Structure of hooks in settings.json
+ */
+interface HooksConfig {
+  matcher?: string;
+  hooks?: HookConfigEntry[];
+}
+
 export class DashboardService {
   /**
    * Get complete dashboard data from all sources.
@@ -249,7 +266,7 @@ export class DashboardService {
 
       if (settings.hooks) {
         for (const [eventName, configs] of Object.entries(settings.hooks)) {
-          for (const config of configs as any[]) {
+          for (const config of configs as HooksConfig[]) {
             for (const hook of config.hooks || []) {
               hooks.push({
                 eventName,
