@@ -93,7 +93,7 @@ import {
   type PreToolUseHookInput,
   type SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import { log, readInput, writeOutput, maybeWriteHeartbeat } from "../utils/logger.ts";
 
 // Read and parse the hook input from stdin
 const input = await readInput<PreToolUseHookInput>();
@@ -107,6 +107,9 @@ await log("PreToolUse", input.session_id, {
   transcript_path: input.transcript_path,
   permission_mode: input.permission_mode,
 });
+
+// Write heartbeat event (tool activity)
+await maybeWriteHeartbeat(input.session_id, true, false);
 
 // Build the output response
 // Default: allow all tools (modify this logic to implement custom policies)

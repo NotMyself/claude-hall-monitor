@@ -53,7 +53,7 @@ import {
   type UserPromptSubmitHookInput,
   type SyncHookJSONOutput,
 } from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import { log, readInput, writeOutput, maybeWriteHeartbeat } from "../utils/logger.ts";
 
 // Read and parse the hook input from stdin
 const input = await readInput<UserPromptSubmitHookInput>();
@@ -66,6 +66,9 @@ await log("UserPromptSubmit", input.session_id, {
   transcript_path: input.transcript_path,
   permission_mode: input.permission_mode,
 });
+
+// Write heartbeat event (user activity)
+await maybeWriteHeartbeat(input.session_id, false, true);
 
 // Build the output response
 // Uncomment hookSpecificOutput to inject additional context into the conversation
