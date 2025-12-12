@@ -231,6 +231,8 @@ main {
   font-size: 0.9em;
   white-space: nowrap;
   transition: background 0.2s;
+  min-width: 120px;
+  text-align: center;
 }
 
 .clear-filters-btn:hover {
@@ -498,15 +500,27 @@ main {
   min-height: 0;
   overflow-y: auto;
   padding-right: 8px;
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-primary);
 }
 
 .log-list::-webkit-scrollbar {
   width: 8px;
 }
 
+.log-list::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
 .log-list::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 4px;
+}
+
+.log-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 /* ===== TabContainer Styles ===== */
@@ -623,7 +637,7 @@ main {
   top: 100%;
   left: 0;
   z-index: 100;
-  min-width: 200px;
+  min-width: 220px;
   max-height: 300px;
   overflow-y: auto;
   background: var(--bg-secondary);
@@ -631,6 +645,28 @@ main {
   border-radius: 4px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   margin-top: 4px;
+  /* Firefox scrollbar styling */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-primary);
+}
+
+/* Scrollbar styling for dropdown panel */
+.event-dropdown-panel::-webkit-scrollbar {
+  width: 8px;
+}
+
+.event-dropdown-panel::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.event-dropdown-panel::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.event-dropdown-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 .event-dropdown-header {
