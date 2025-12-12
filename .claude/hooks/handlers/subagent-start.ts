@@ -67,28 +67,32 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<SubagentStartHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<SubagentStartHookInput>();
 
-// Log the subagent start with structured data
-await log("SubagentStart", input.session_id, {
-  cwd: input.cwd,
-  agent_id: input.agent_id,
-  agent_type: input.agent_type,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  started_at: new Date().toISOString(),
-});
+  // Log the subagent start with structured data
+  await log("SubagentStart", input.session_id, {
+    cwd: input.cwd,
+    agent_id: input.agent_id,
+    agent_type: input.agent_type,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    started_at: new Date().toISOString(),
+  });
 
-// Build the output response
-// Optionally inject context specific to the agent type
-const output: SyncHookJSONOutput = {
-  continue: true,
-  hookSpecificOutput: {
-    hookEventName: "SubagentStart",
-    additionalContext: `Subagent '${input.agent_type}' (${input.agent_id}) spawned`,
-  },
-};
+  // Build the output response
+  // Optionally inject context specific to the agent type
+  const output: SyncHookJSONOutput = {
+    continue: true,
+    hookSpecificOutput: {
+      hookEventName: "SubagentStart",
+      additionalContext: `Subagent '${input.agent_type}' (${input.agent_id}) spawned`,
+    },
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

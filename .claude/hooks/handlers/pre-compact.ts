@@ -53,25 +53,29 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<PreCompactHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<PreCompactHookInput>();
 
-// Log the pre-compaction event with structured data
-await log("PreCompact", input.session_id, {
-  cwd: input.cwd,
-  trigger: input.trigger,
-  has_custom_instructions: input.custom_instructions !== null,
-  custom_instructions: input.custom_instructions,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  compacting_at: new Date().toISOString(),
-});
+  // Log the pre-compaction event with structured data
+  await log("PreCompact", input.session_id, {
+    cwd: input.cwd,
+    trigger: input.trigger,
+    has_custom_instructions: input.custom_instructions !== null,
+    custom_instructions: input.custom_instructions,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    compacting_at: new Date().toISOString(),
+  });
 
-// Build the output response
-// PreCompact doesn't support hookSpecificOutput, just continue
-const output: SyncHookJSONOutput = {
-  continue: true,
-};
+  // Build the output response
+  // PreCompact doesn't support hookSpecificOutput, just continue
+  const output: SyncHookJSONOutput = {
+    continue: true,
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

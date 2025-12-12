@@ -80,30 +80,34 @@ async function shutdownViewer(): Promise<void> {
   }
 }
 
-// Read and parse the hook input from stdin
-const input = await readInput<SessionEndHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<SessionEndHookInput>();
 
-// Log the session end with structured data
-await log("SessionEnd", input.session_id, {
-  cwd: input.cwd,
-  reason: input.reason,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  ended_at: new Date().toISOString(),
-});
+  // Log the session end with structured data
+  await log("SessionEnd", input.session_id, {
+    cwd: input.cwd,
+    reason: input.reason,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    ended_at: new Date().toISOString(),
+  });
 
-// Only shut down viewer on actual exit, not clear/compact
-// Clear and compact trigger SessionEnd then SessionStart - viewer should persist
-const shouldShutdown = input.reason !== "clear" && input.reason !== "compact";
-if (shouldShutdown) {
-  await shutdownViewer();
+  // Only shut down viewer on actual exit, not clear/compact
+  // Clear and compact trigger SessionEnd then SessionStart - viewer should persist
+  const shouldShutdown = input.reason !== "clear" && input.reason !== "compact";
+  if (shouldShutdown) {
+    await shutdownViewer();
+  }
+
+  // Build the output response
+  // SessionEnd doesn't support hookSpecificOutput, just continue
+  const output: SyncHookJSONOutput = {
+    continue: true,
+  };
+
+  // Write JSON response to stdout
+  writeOutput(output);
 }
 
-// Build the output response
-// SessionEnd doesn't support hookSpecificOutput, just continue
-const output: SyncHookJSONOutput = {
-  continue: true,
-};
-
-// Write JSON response to stdout
-writeOutput(output);
+main();

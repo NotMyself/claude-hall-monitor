@@ -55,30 +55,34 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput, maybeWriteHeartbeat } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<UserPromptSubmitHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<UserPromptSubmitHookInput>();
 
-// Log the prompt submission with structured data
-await log("UserPromptSubmit", input.session_id, {
-  cwd: input.cwd,
-  prompt: input.prompt,
-  prompt_length: input.prompt.length,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-});
+  // Log the prompt submission with structured data
+  await log("UserPromptSubmit", input.session_id, {
+    cwd: input.cwd,
+    prompt: input.prompt,
+    prompt_length: input.prompt.length,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+  });
 
-// Write heartbeat event (user activity)
-await maybeWriteHeartbeat(input.session_id, false, true);
+  // Write heartbeat event (user activity)
+  await maybeWriteHeartbeat(input.session_id, false, true);
 
-// Build the output response
-// Uncomment hookSpecificOutput to inject additional context into the conversation
-const output: SyncHookJSONOutput = {
-  continue: true,
-  // hookSpecificOutput: {
-  //   hookEventName: "UserPromptSubmit",
-  //   additionalContext: `Prompt received at ${new Date().toISOString()}`,
-  // },
-};
+  // Build the output response
+  // Uncomment hookSpecificOutput to inject additional context into the conversation
+  const output: SyncHookJSONOutput = {
+    continue: true,
+    // hookSpecificOutput: {
+    //   hookEventName: "UserPromptSubmit",
+    //   additionalContext: `Prompt received at ${new Date().toISOString()}`,
+    // },
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

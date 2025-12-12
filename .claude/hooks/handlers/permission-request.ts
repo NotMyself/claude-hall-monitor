@@ -126,58 +126,62 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<PermissionRequestHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<PermissionRequestHookInput>();
 
-// Log the permission request with structured data
-await log("PermissionRequest", input.session_id, {
-  cwd: input.cwd,
-  tool_name: input.tool_name,
-  tool_input: input.tool_input,
-  has_suggestions:
-    Array.isArray(input.permission_suggestions) &&
-    input.permission_suggestions.length > 0,
-  suggestion_count: input.permission_suggestions?.length ?? 0,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  requested_at: new Date().toISOString(),
-});
+  // Log the permission request with structured data
+  await log("PermissionRequest", input.session_id, {
+    cwd: input.cwd,
+    tool_name: input.tool_name,
+    tool_input: input.tool_input,
+    has_suggestions:
+      Array.isArray(input.permission_suggestions) &&
+      input.permission_suggestions.length > 0,
+    suggestion_count: input.permission_suggestions?.length ?? 0,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    requested_at: new Date().toISOString(),
+  });
 
-// Build the output response
-// Default: pass-through to default handler (prompts user)
-// Uncomment examples below to implement automated permission logic
-const output: SyncHookJSONOutput = {
-  continue: true,
+  // Build the output response
+  // Default: pass-through to default handler (prompts user)
+  // Uncomment examples below to implement automated permission logic
+  const output: SyncHookJSONOutput = {
+    continue: true,
 
-  // Uncomment to auto-approve:
-  // hookSpecificOutput: {
-  //   hookEventName: "PermissionRequest",
-  //   decision: {
-  //     behavior: "allow",
-  //   },
-  // },
+    // Uncomment to auto-approve:
+    // hookSpecificOutput: {
+    //   hookEventName: "PermissionRequest",
+    //   decision: {
+    //     behavior: "allow",
+    //   },
+    // },
 
-  // Uncomment to auto-deny:
-  // hookSpecificOutput: {
-  //   hookEventName: "PermissionRequest",
-  //   decision: {
-  //     behavior: "deny",
-  //     message: "Blocked by policy",
-  //   },
-  // },
+    // Uncomment to auto-deny:
+    // hookSpecificOutput: {
+    //   hookEventName: "PermissionRequest",
+    //   decision: {
+    //     behavior: "deny",
+    //     message: "Blocked by policy",
+    //   },
+    // },
 
-  // Uncomment to approve with modified input:
-  // hookSpecificOutput: {
-  //   hookEventName: "PermissionRequest",
-  //   decision: {
-  //     behavior: "allow",
-  //     updatedInput: {
-  //       ...(input.tool_input as Record<string, unknown>),
-  //       // Add modifications here
-  //     },
-  //   },
-  // },
-};
+    // Uncomment to approve with modified input:
+    // hookSpecificOutput: {
+    //   hookEventName: "PermissionRequest",
+    //   decision: {
+    //     behavior: "allow",
+    //     updatedInput: {
+    //       ...(input.tool_input as Record<string, unknown>),
+    //       // Add modifications here
+    //     },
+    //   },
+    // },
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

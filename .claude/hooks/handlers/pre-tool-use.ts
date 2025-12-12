@@ -95,40 +95,44 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput, maybeWriteHeartbeat } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<PreToolUseHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<PreToolUseHookInput>();
 
-// Log the tool use attempt with structured data
-await log("PreToolUse", input.session_id, {
-  cwd: input.cwd,
-  tool_name: input.tool_name,
-  tool_input: input.tool_input,
-  tool_use_id: input.tool_use_id,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-});
+  // Log the tool use attempt with structured data
+  await log("PreToolUse", input.session_id, {
+    cwd: input.cwd,
+    tool_name: input.tool_name,
+    tool_input: input.tool_input,
+    tool_use_id: input.tool_use_id,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+  });
 
-// Write heartbeat event (tool activity)
-await maybeWriteHeartbeat(input.session_id, true, false);
+  // Write heartbeat event (tool activity)
+  await maybeWriteHeartbeat(input.session_id, true, false);
 
-// Build the output response
-// Default: allow all tools (modify this logic to implement custom policies)
-const output: SyncHookJSONOutput = {
-  continue: true,
-  hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    permissionDecision: "allow",
-    // Uncomment to deny:
-    // permissionDecision: "deny",
-    // permissionDecisionReason: "Operation not allowed by policy",
+  // Build the output response
+  // Default: allow all tools (modify this logic to implement custom policies)
+  const output: SyncHookJSONOutput = {
+    continue: true,
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "allow",
+      // Uncomment to deny:
+      // permissionDecision: "deny",
+      // permissionDecisionReason: "Operation not allowed by policy",
 
-    // Uncomment to modify input:
-    // updatedInput: {
-    //   ...input.tool_input as Record<string, unknown>,
-    //   // Add or modify fields here
-    // },
-  },
-};
+      // Uncomment to modify input:
+      // updatedInput: {
+      //   ...input.tool_input as Record<string, unknown>,
+      //   // Add or modify fields here
+      // },
+    },
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

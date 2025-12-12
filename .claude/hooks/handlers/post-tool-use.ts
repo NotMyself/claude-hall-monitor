@@ -104,37 +104,41 @@ function truncateForLog(value: unknown, maxLength = 500): string {
   return value;
 }
 
-// Read and parse the hook input from stdin
-const input = await readInput<PostToolUseHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<PostToolUseHookInput>();
 
-// Log the successful tool execution with structured data
-await log("PostToolUse", input.session_id, {
-  cwd: input.cwd,
-  tool_name: input.tool_name,
-  tool_input: input.tool_input,
-  tool_use_id: input.tool_use_id,
-  response_preview: truncateForLog(input.tool_response),
-  response_type: typeof input.tool_response,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-});
+  // Log the successful tool execution with structured data
+  await log("PostToolUse", input.session_id, {
+    cwd: input.cwd,
+    tool_name: input.tool_name,
+    tool_input: input.tool_input,
+    tool_use_id: input.tool_use_id,
+    response_preview: truncateForLog(input.tool_response),
+    response_type: typeof input.tool_response,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+  });
 
-// Build the output response
-// Default: pass-through with no modifications
-const output: SyncHookJSONOutput = {
-  continue: true,
-  // Uncomment to add context based on results:
-  // hookSpecificOutput: {
-  //   hookEventName: "PostToolUse",
-  //   additionalContext: "Tool executed successfully",
-  // },
+  // Build the output response
+  // Default: pass-through with no modifications
+  const output: SyncHookJSONOutput = {
+    continue: true,
+    // Uncomment to add context based on results:
+    // hookSpecificOutput: {
+    //   hookEventName: "PostToolUse",
+    //   additionalContext: "Tool executed successfully",
+    // },
 
-  // Uncomment to modify MCP tool output:
-  // hookSpecificOutput: {
-  //   hookEventName: "PostToolUse",
-  //   updatedMCPToolOutput: transformedOutput,
-  // },
-};
+    // Uncomment to modify MCP tool output:
+    // hookSpecificOutput: {
+    //   hookEventName: "PostToolUse",
+    //   updatedMCPToolOutput: transformedOutput,
+    // },
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();

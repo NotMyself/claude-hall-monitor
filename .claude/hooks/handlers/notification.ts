@@ -56,25 +56,29 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { log, readInput, writeOutput } from "../utils/logger.ts";
 
-// Read and parse the hook input from stdin
-const input = await readInput<NotificationHookInput>();
+async function main(): Promise<void> {
+  // Read and parse the hook input from stdin
+  const input = await readInput<NotificationHookInput>();
 
-// Log the notification with structured data
-await log("Notification", input.session_id, {
-  cwd: input.cwd,
-  title: input.title,
-  message: input.message,
-  notification_type: input.notification_type,
-  transcript_path: input.transcript_path,
-  permission_mode: input.permission_mode,
-  received_at: new Date().toISOString(),
-});
+  // Log the notification with structured data
+  await log("Notification", input.session_id, {
+    cwd: input.cwd,
+    title: input.title,
+    message: input.message,
+    notification_type: input.notification_type,
+    transcript_path: input.transcript_path,
+    permission_mode: input.permission_mode,
+    received_at: new Date().toISOString(),
+  });
 
-// Build the output response
-// Notification doesn't support hookSpecificOutput, just continue
-const output: SyncHookJSONOutput = {
-  continue: true,
-};
+  // Build the output response
+  // Notification doesn't support hookSpecificOutput, just continue
+  const output: SyncHookJSONOutput = {
+    continue: true,
+  };
 
-// Write JSON response to stdout
-writeOutput(output);
+  // Write JSON response to stdout
+  writeOutput(output);
+}
+
+main();
