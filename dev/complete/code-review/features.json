@@ -9,7 +9,7 @@
       "description": "Fix memory leak by clearing dashboardPollInterval on component unmount",
       "layer": 1,
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/index.html",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -19,7 +19,7 @@
       "description": "Replace Vue 2 beforeDestroy with Vue 3 beforeUnmount lifecycle hook",
       "layer": 1,
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/index.html",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -29,7 +29,7 @@
       "description": "Make cleanupPaths() portable by detecting home directories dynamically",
       "layer": 1,
       "priority": "high",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/index.html",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -39,7 +39,7 @@
       "description": "Remove toLowerCase() to match PascalCase CSS badge classes",
       "layer": 1,
       "priority": "medium",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/index.html",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -49,7 +49,7 @@
       "description": "Move hardcoded values to config.ts for maintainability",
       "layer": 2,
       "priority": "medium",
-      "status": "pending",
+      "status": "completed",
       "files": [".claude/hooks/viewer/config.ts", ".claude/hooks/viewer/server.ts"],
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -59,7 +59,7 @@
       "description": "Replace check-then-create with atomic mkdir operation",
       "layer": 2,
       "priority": "low",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/utils/logger.ts",
       "verification": "bun run tsc --noEmit"
     },
@@ -69,7 +69,7 @@
       "description": "Replace any[] with proper HookConfig interface",
       "layer": 2,
       "priority": "low",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/dashboard.ts",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -79,7 +79,7 @@
       "description": "Replace empty catch blocks with console.debug logging",
       "layer": 2,
       "priority": "low",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/viewer/dashboard.ts",
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -89,7 +89,7 @@
       "description": "Wrap all handlers in consistent async main() function",
       "layer": 3,
       "priority": "medium",
-      "status": "pending",
+      "status": "completed",
       "files": [
         ".claude/hooks/handlers/session-end.ts",
         ".claude/hooks/handlers/pre-tool-use.ts",
@@ -111,7 +111,7 @@
       "description": "Replace readFileSync with async Bun.file() in watcher.ts",
       "layer": 3,
       "priority": "medium",
-      "status": "pending",
+      "status": "completed",
       "files": [".claude/hooks/viewer/watcher.ts", ".claude/hooks/viewer/server.ts"],
       "verification": "bun run test && bun run tsc --noEmit"
     },
@@ -121,7 +121,7 @@
       "description": "Create comprehensive tests for logger.ts functions",
       "layer": 4,
       "priority": "low",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/utils/__tests__/logger.test.ts",
       "verification": "bun run test"
     },
@@ -131,7 +131,7 @@
       "description": "Create test suite for all 12 hook handlers",
       "layer": 4,
       "priority": "medium",
-      "status": "pending",
+      "status": "completed",
       "file": ".claude/hooks/handlers/__tests__/",
       "verification": "bun run test"
     }
