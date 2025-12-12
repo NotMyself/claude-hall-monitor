@@ -7,7 +7,7 @@
       "id": "types",
       "title": "Dashboard Type Definitions",
       "layer": 1,
-      "status": "pending",
+      "status": "completed",
       "description": "Add TypeScript interfaces for dashboard data structures",
       "acceptanceCriteria": [
         "SessionStatus type defined",
@@ -25,7 +25,7 @@
       "id": "config",
       "title": "Dashboard Configuration",
       "layer": 1,
-      "status": "pending",
+      "status": "completed",
       "description": "Add paths and timing configuration for dashboard",
       "acceptanceCriteria": [
         "PATHS includes CLAUDE_HOME, STATS_CACHE, COMMANDS_DIR, SKILLS_DIR, SETTINGS_FILE",
@@ -41,7 +41,7 @@
       "id": "heartbeat",
       "title": "Heartbeat Logging Function",
       "layer": 2,
-      "status": "pending",
+      "status": "completed",
       "description": "Add maybeWriteHeartbeat function to logger utility",
       "acceptanceCriteria": [
         "maybeWriteHeartbeat function exported from logger.ts",
@@ -58,7 +58,7 @@
       "id": "heartbeat-handlers",
       "title": "Integrate Heartbeat in Handlers",
       "layer": 2,
-      "status": "pending",
+      "status": "completed",
       "description": "Call heartbeat from pre-tool-use and user-prompt-submit handlers",
       "acceptanceCriteria": [
         "pre-tool-use.ts calls maybeWriteHeartbeat with incrementTool=true",
@@ -77,7 +77,7 @@
       "id": "dashboard-service",
       "title": "Dashboard Data Service",
       "layer": 3,
-      "status": "pending",
+      "status": "completed",
       "description": "Create DashboardService class to gather all dashboard data",
       "acceptanceCriteria": [
         "DashboardService class created in viewer/dashboard.ts",
@@ -98,7 +98,7 @@
       "id": "api-endpoint",
       "title": "Dashboard API Endpoint",
       "layer": 3,
-      "status": "pending",
+      "status": "completed",
       "description": "Add /api/dashboard endpoint to server",
       "acceptanceCriteria": [
         "GET /api/dashboard returns DashboardData JSON",
@@ -114,7 +114,7 @@
       "id": "dashboard-styles",
       "title": "Dashboard CSS Styles",
       "layer": 4,
-      "status": "pending",
+      "status": "completed",
       "description": "Add CSS styles for dashboard components",
       "acceptanceCriteria": [
         ".dashboard container styles added",
@@ -132,7 +132,7 @@
       "id": "dashboard-component",
       "title": "Dashboard Vue Component",
       "layer": 4,
-      "status": "pending",
+      "status": "completed",
       "description": "Add dashboard-view Vue component to index.html",
       "acceptanceCriteria": [
         "Dashboard tab added to tabs array",
@@ -150,7 +150,7 @@
       "id": "unit-tests",
       "title": "Dashboard Unit Tests",
       "layer": 5,
-      "status": "pending",
+      "status": "completed",
       "description": "Add unit tests for dashboard service and components",
       "acceptanceCriteria": [
         "Tests for DashboardService.getSessions() status logic",
@@ -166,7 +166,7 @@
       "id": "e2e-validation",
       "title": "E2E Dashboard Validation",
       "layer": 6,
-      "status": "pending",
+      "status": "completed",
       "description": "Validate dashboard functionality with Playwright",
       "acceptanceCriteria": [
         "Dashboard tab is clickable and switches view",

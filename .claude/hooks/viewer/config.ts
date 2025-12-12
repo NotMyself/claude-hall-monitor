@@ -7,8 +7,8 @@ export const SERVER_CONFIG = {
   /** HTTP server port */
   PORT: 3456,
 
-  /** Hostname to bind to */
-  HOST: "localhost",
+  /** Hostname to bind to (0.0.0.0 allows external connections) */
+  HOST: "0.0.0.0",
 
   /** Full server URL */
   get URL() {
