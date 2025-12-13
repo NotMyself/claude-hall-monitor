@@ -31,3 +31,4 @@ bun run test:coverage # With coverage
 - Mock file system operations for handler tests
 - Use happy-dom environment for Vue component tests
 - Test SSE streaming behavior for server endpoints
+- Use `join()` for all mock paths (see `cross-platform.md` for details)
