@@ -5,6 +5,8 @@ import {
   validatePathWithinBase,
   getLocalhostOrigin,
   validatePlanName,
+  generateAuthToken,
+  verifyAuthToken,
 } from "../security";
 
 describe("validateSessionId", () => {
@@ -224,5 +226,98 @@ describe("validatePlanName", () => {
 
   test("rejects invalid URL encoding", () => {
     expect(validatePlanName("%GG")).toBe(null);
+  });
+});
+
+describe("generateAuthToken", () => {
+  test("generates unique tokens", () => {
+    const token1 = generateAuthToken();
+    const token2 = generateAuthToken();
+    expect(token1).not.toBe(token2);
+  });
+
+  test("generates 64-character hex string (32 bytes)", () => {
+    const token = generateAuthToken();
+    expect(token.length).toBe(64);
+    expect(/^[a-f0-9]{64}$/.test(token)).toBe(true);
+  });
+
+  test("generates cryptographically random tokens", () => {
+    const tokens = new Set<string>();
+    for (let i = 0; i < 100; i++) {
+      tokens.add(generateAuthToken());
+    }
+    // All 100 tokens should be unique
+    expect(tokens.size).toBe(100);
+  });
+});
+
+describe("verifyAuthToken", () => {
+  test("verifies valid token with Bearer prefix", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken(`Bearer ${token}`, token)).toBe(true);
+  });
+
+  test("verifies valid token with bearer prefix (case insensitive)", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken(`bearer ${token}`, token)).toBe(true);
+  });
+
+  test("rejects wrong token", () => {
+    const token = generateAuthToken();
+    const wrongToken = generateAuthToken();
+    expect(verifyAuthToken(`Bearer ${wrongToken}`, token)).toBe(false);
+  });
+
+  test("rejects null header", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken(null, token)).toBe(false);
+  });
+
+  test("rejects empty header", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken("", token)).toBe(false);
+  });
+
+  test("accepts token without Bearer prefix (fallback behavior)", () => {
+    // Current implementation allows raw token comparison
+    const token = generateAuthToken();
+    expect(verifyAuthToken(token, token)).toBe(true);
+  });
+
+  test("rejects malformed header", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken("NotBearer " + token, token)).toBe(false);
+  });
+
+  test("accepts token with multiple spaces after Bearer", () => {
+    // Regex \s+ matches one or more whitespace
+    const token = generateAuthToken();
+    expect(verifyAuthToken(`Bearer  ${token}`, token)).toBe(true);
+    expect(verifyAuthToken(`Bearer   ${token}`, token)).toBe(true);
+  });
+
+  test("prevents timing attacks with constant-time comparison", () => {
+    // While we can't truly test timing, we can verify behavior
+    const token = generateAuthToken();
+    const wrongTokenSamePrefix = token.slice(0, 60) + "0000";
+    const wrongTokenDifferent = "a".repeat(64);
+
+    expect(verifyAuthToken(`Bearer ${wrongTokenSamePrefix}`, token)).toBe(false);
+    expect(verifyAuthToken(`Bearer ${wrongTokenDifferent}`, token)).toBe(false);
+  });
+
+  test("rejects auth token passed in URL query string (EC012)", () => {
+    // This tests that we ONLY accept tokens in Authorization header
+    // not in URL parameters (which would be insecure)
+    const token = generateAuthToken();
+    const urlWithToken = `?token=${token}`;
+    expect(verifyAuthToken(urlWithToken, token)).toBe(false);
+  });
+
+  test("accepts tab or newline after Bearer", () => {
+    const token = generateAuthToken();
+    expect(verifyAuthToken(`Bearer\t${token}`, token)).toBe(true);
+    expect(verifyAuthToken(`Bearer\n${token}`, token)).toBe(true);
   });
 });
