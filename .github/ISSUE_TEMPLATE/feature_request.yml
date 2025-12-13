@@ -1,0 +1,86 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please provide details below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve?
+      placeholder: Describe the problem or limitation you're experiencing
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your proposed solution in detail.
+      placeholder: How should this feature work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: user-experience
+    attributes:
+      label: User Experience
+      description: (Optional) How would users interact with this feature?
+      placeholder: |
+        Example usage:
+        1. User runs command '...'
+        2. System responds with '...'
+        3. User sees '...'
+    validations:
+      required: false
+
+  - type: textarea
+    id: implementation
+    attributes:
+      label: Implementation Details
+      description: (Optional) Technical details or suggestions.
+      placeholder: |
+        Files to modify:
+        - .claude/hooks/handlers/...
+        - .claude/hooks/viewer/...
+
+        Key changes:
+        - Add new handler for...
+        - Update types in...
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance Criteria
+      description: (Optional) How do we know this feature is complete?
+      placeholder: |
+        - [ ] User can...
+        - [ ] System handles...
+        - [ ] Tests cover...
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: (Optional) What other approaches did you consider?
+      placeholder: Describe alternative solutions you've thought about
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any other context, mockups, or references.
+      placeholder: Links, screenshots, related issues, etc.
+    validations:
+      required: false
