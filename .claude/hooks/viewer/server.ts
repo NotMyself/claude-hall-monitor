@@ -4,8 +4,9 @@ import { PlanWatcher } from "./plan-watcher";
 import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanUpdateMessage } from "./types";
 import { DashboardService } from "./dashboard";
 import { SessionSummaryService } from "./session-summary";
-import { validatePlanName, sanitizePathComponent, validatePathWithinBase } from "./security";
+import { validatePlanName, sanitizePathComponent, validatePathWithinBase, validateSessionId } from "./security";
 import { RateLimiter, DEFAULT_RATE_LIMIT } from "./rate-limiter";
+
 
 /**
  * MIME types for static files
@@ -265,7 +266,8 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: GET /api/entries -> JSON array of all entries
   if (path === "/api/entries" && request.method === "GET") {
-    const session = url.searchParams.get("session") || currentSessionId;
+    const rawSession = url.searchParams.get("session");
+    const session = validateSessionId(rawSession) || currentSessionId;
     if (session && session !== watcher.getCurrentSessionId()) {
       watcher.setSession(session);
     }
@@ -309,6 +311,7 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: POST /shutdown -> Gracefully shut down the server
   if (path === "/shutdown" && request.method === "POST") {
+
     console.log("\n🛑 Shutdown requested via API");
     // Respond before shutting down
     setTimeout(() => {

@@ -2,6 +2,7 @@
  * Security utilities for path sanitization, session ID validation,
  * and other security functions.
  */
+import { randomBytes } from "node:crypto";
 
 /**
  * Result of session ID validation
