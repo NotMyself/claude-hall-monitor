@@ -57,6 +57,13 @@
               :loading="plansLoading"
             ></plan-tracker-view>
           </template>
+
+          <template #sessions>
+            <session-summaries-view
+              :data="summariesData"
+              :loading="summariesLoading"
+            ></session-summaries-view>
+          </template>
         </tab-container>
       </main>
 
@@ -103,6 +110,7 @@
           { id: 'dashboard', label: 'Dashboard' },
           { id: 'logs', label: 'Hook Log' },
           { id: 'plans', label: 'Plans' },
+          { id: 'sessions', label: 'Sessions' },
         ];
 
         const connectionText = computed(() => {
@@ -139,6 +147,11 @@
         const plans = ref([]);
         const plansLoading = ref(false);
         let planEventSource = null;
+
+        // Session summaries state
+        const summariesData = ref(null);
+        const summariesLoading = ref(false);
+        let summariesPollInterval = null;
 
         // Fetch dashboard data
         async function fetchDashboard() {
@@ -227,6 +240,21 @@
           if (planEventSource) {
             planEventSource.close();
             planEventSource = null;
+          }
+        }
+
+        // Fetch session summaries
+        async function fetchSummaries() {
+          try {
+            summariesLoading.value = summariesData.value === null;
+            const res = await fetch('/api/summaries');
+            if (res.ok) {
+              summariesData.value = await res.json();
+            }
+          } catch (err) {
+            console.error('Failed to fetch summaries:', err);
+          } finally {
+            summariesLoading.value = false;
           }
         }
 
@@ -340,9 +368,9 @@
           }
         });
 
-        // Start/stop dashboard polling and plans SSE based on active tab
+        // Start/stop polling based on active tab
         watch(currentTab, (newTab, oldTab) => {
-          // Dashboard tab
+          // Dashboard polling
           if (newTab === 'dashboard') {
             fetchDashboard();
             dashboardPollInterval = setInterval(fetchDashboard, 5000);
@@ -357,6 +385,15 @@
             connectPlansSSE();
           } else if (oldTab === 'plans') {
             disconnectPlansSSE();
+          }
+
+          // Sessions polling
+          if (newTab === 'sessions') {
+            fetchSummaries();
+            summariesPollInterval = setInterval(fetchSummaries, 10000);
+          } else if (oldTab === 'sessions' && summariesPollInterval) {
+            clearInterval(summariesPollInterval);
+            summariesPollInterval = null;
           }
         });
 
@@ -375,6 +412,10 @@
           if (dashboardPollInterval) {
             clearInterval(dashboardPollInterval);
             dashboardPollInterval = null;
+          }
+          if (summariesPollInterval) {
+            clearInterval(summariesPollInterval);
+            summariesPollInterval = null;
           }
         });
 
@@ -395,6 +436,8 @@
           dashboardLoading,
           plans,
           plansLoading,
+          summariesData,
+          summariesLoading,
         };
       },
     });
@@ -1614,6 +1657,215 @@
           </div>
         </li>
       `,
+    });
+
+    // ===== SessionSummariesView Component =====
+    app.component('session-summaries-view', {
+      props: {
+        data: { type: Object, default: null },
+        loading: { type: Boolean, default: false },
+      },
+      data() {
+        return {
+          searchQuery: '',
+          selectedProject: null,
+        };
+      },
+      computed: {
+        filteredSummaries() {
+          if (!this.data || !this.data.summaries) return [];
+
+          let summaries = this.data.summaries;
+
+          // Filter by project
+          if (this.selectedProject) {
+            summaries = summaries.filter(s => s.project_name === this.selectedProject);
+          }
+
+          // Filter by search query
+          if (this.searchQuery.trim()) {
+            const query = this.searchQuery.toLowerCase();
+            summaries = summaries.filter(s =>
+              s.description.toLowerCase().includes(query) ||
+              s.session_id.toLowerCase().includes(query) ||
+              s.project_path.toLowerCase().includes(query)
+            );
+          }
+
+          return summaries;
+        },
+        projects() {
+          return this.data?.projects || [];
+        },
+        summaryCount() {
+          return this.filteredSummaries.length;
+        },
+        totalCount() {
+          return this.data?.summaries?.length || 0;
+        },
+      },
+      methods: {
+        formatDate(iso) {
+          try {
+            const date = new Date(iso);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+            if (days === 0) {
+              return date.toLocaleTimeString('en-US', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+              });
+            } else if (days === 1) {
+              return 'Yesterday';
+            } else if (days < 7) {
+              return `${days} days ago`;
+            } else {
+              return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+              });
+            }
+          } catch {
+            return iso;
+          }
+        },
+        formatTokens(tokens) {
+          if (!tokens) return '0';
+          if (tokens >= 1_000_000) {
+            return (tokens / 1_000_000).toFixed(1) + 'M';
+          }
+          if (tokens >= 1_000) {
+            return (tokens / 1_000).toFixed(1) + 'K';
+          }
+          return String(tokens);
+        },
+        formatSize(bytes) {
+          if (bytes < 1024) return bytes + ' B';
+          if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+          return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+        truncateId(id) {
+          if (!id || id.length <= 12) return id;
+          return id.substring(0, 8) + '...';
+        },
+        getProjectDisplayName(projectName) {
+          // Convert -home-user-project to ~/project
+          if (projectName.startsWith('-home-')) {
+            const parts = projectName.split('-').filter(Boolean);
+            if (parts.length >= 2) {
+              return '~/' + parts.slice(2).join('/');
+            }
+          }
+          if (projectName.startsWith('-Users-')) {
+            const parts = projectName.split('-').filter(Boolean);
+            if (parts.length >= 2) {
+              return '~/' + parts.slice(2).join('/');
+            }
+          }
+          return projectName.replace(/-/g, '/');
+        },
+        clearFilters() {
+          this.searchQuery = '';
+          this.selectedProject = null;
+        },
+      },
+      template: `
+    <div class="sessions-view">
+      <div v-if="loading && !data" class="sessions-loading">
+        Loading session summaries...
+      </div>
+
+      <div v-else-if="data" class="sessions-content">
+        <!-- Filter Bar -->
+        <div class="sessions-filter-bar">
+          <input
+            type="text"
+            v-model="searchQuery"
+            class="search-input"
+            placeholder="Search sessions..."
+          />
+
+          <select v-model="selectedProject" class="project-select">
+            <option :value="null">All Projects ({{ projects.length }})</option>
+            <option v-for="project in projects" :key="project" :value="project">
+              {{ getProjectDisplayName(project) }}
+            </option>
+          </select>
+
+          <button
+            class="clear-filters-btn"
+            @click="clearFilters"
+            :disabled="!searchQuery && !selectedProject"
+          >
+            Clear
+          </button>
+
+          <span class="sessions-count">
+            {{ summaryCount }} of {{ totalCount }} sessions
+          </span>
+        </div>
+
+        <!-- Sessions List -->
+        <div v-if="filteredSummaries.length === 0" class="empty-state">
+          <h3>No sessions found</h3>
+          <p v-if="searchQuery || selectedProject">Try adjusting your filters</p>
+          <p v-else>No Claude Code sessions found in ~/.claude/projects/</p>
+        </div>
+
+        <div v-else class="sessions-list">
+          <div
+            v-for="session in filteredSummaries"
+            :key="session.session_id"
+            class="session-summary-card"
+          >
+            <div class="session-summary-header">
+              <span class="session-summary-id" :title="session.session_id">
+                {{ truncateId(session.session_id) }}
+              </span>
+              <span class="session-summary-date">
+                {{ formatDate(session.last_activity) }}
+              </span>
+            </div>
+
+            <div class="session-summary-project">
+              {{ getProjectDisplayName(session.project_name) }}
+            </div>
+
+            <div class="session-summary-description">
+              {{ session.description }}
+            </div>
+
+            <div class="session-summary-stats">
+              <span class="stat" title="Conversation turns">
+                <span class="stat-icon">💬</span>
+                {{ session.turn_count }} turns
+              </span>
+              <span class="stat" title="Total messages">
+                <span class="stat-icon">📨</span>
+                {{ session.message_count }} msgs
+              </span>
+              <span class="stat" title="Total tokens">
+                <span class="stat-icon">🎟️</span>
+                {{ formatTokens(session.total_tokens) }}
+              </span>
+              <span class="stat" title="File size">
+                <span class="stat-icon">📁</span>
+                {{ formatSize(session.file_size) }}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="sessions-empty">
+        <h3>Sessions unavailable</h3>
+        <p>Unable to load session data</p>
+      </div>
+    </div>
+  `,
     });
 
     // Mount the app

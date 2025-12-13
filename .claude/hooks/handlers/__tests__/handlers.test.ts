@@ -12,6 +12,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+// Get the directory of this test file for relative path resolution
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const HANDLERS_DIR = join(__dirname, '..');
 
 describe('Hook Handler Tests', () => {
   // These tests verify the handler test infrastructure is set up correctly
@@ -95,9 +102,9 @@ describe('Hook Handler Tests', () => {
 
       for (const handler of handlers) {
         const { stat } = await import('node:fs/promises');
-        const path = `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`;
-        const exists = await stat(path).then(() => true).catch(() => false);
-        expect(exists).toBe(true);
+        const handlerPath = join(HANDLERS_DIR, `${handler}.ts`);
+        const exists = await stat(handlerPath).then(() => true).catch(() => false);
+        expect(exists, `Handler ${handler}.ts should exist at ${handlerPath}`).toBe(true);
       }
     });
 
@@ -114,9 +121,9 @@ describe('Hook Handler Tests', () => {
 
       for (const handler of handlers) {
         const { stat } = await import('node:fs/promises');
-        const path = `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`;
-        const exists = await stat(path).then(() => true).catch(() => false);
-        expect(exists).toBe(true);
+        const handlerPath = join(HANDLERS_DIR, `${handler}.ts`);
+        const exists = await stat(handlerPath).then(() => true).catch(() => false);
+        expect(exists, `Handler ${handler}.ts should exist at ${handlerPath}`).toBe(true);
       }
     });
   });
@@ -127,7 +134,7 @@ describe('Hook Handler Tests', () => {
       // but we can verify the handler file contains it
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\post-tool-use.ts',
+        join(HANDLERS_DIR, 'post-tool-use.ts'),
         'utf-8'
       );
 
@@ -140,7 +147,7 @@ describe('Hook Handler Tests', () => {
     it('session-start contains viewer startup logic', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\session-start.ts',
+        join(HANDLERS_DIR, 'session-start.ts'),
         'utf-8'
       );
 
@@ -154,7 +161,7 @@ describe('Hook Handler Tests', () => {
     it('session-end contains viewer shutdown logic', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\session-end.ts',
+        join(HANDLERS_DIR, 'session-end.ts'),
         'utf-8'
       );
 
@@ -166,7 +173,7 @@ describe('Hook Handler Tests', () => {
     it('session-end does not shut down on clear/compact', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\session-end.ts',
+        join(HANDLERS_DIR, 'session-end.ts'),
         'utf-8'
       );
 
@@ -182,7 +189,7 @@ describe('Hook Handler Tests', () => {
     it('pre-tool-use contains permission decision logic', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\pre-tool-use.ts',
+        join(HANDLERS_DIR, 'pre-tool-use.ts'),
         'utf-8'
       );
 
@@ -194,7 +201,7 @@ describe('Hook Handler Tests', () => {
     it('pre-tool-use calls maybeWriteHeartbeat', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\pre-tool-use.ts',
+        join(HANDLERS_DIR, 'pre-tool-use.ts'),
         'utf-8'
       );
 
@@ -206,7 +213,7 @@ describe('Hook Handler Tests', () => {
     it('permission-request logs suggestion count', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\permission-request.ts',
+        join(HANDLERS_DIR, 'permission-request.ts'),
         'utf-8'
       );
 
@@ -218,7 +225,7 @@ describe('Hook Handler Tests', () => {
     it('permission-request has decision examples in comments', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\permission-request.ts',
+        join(HANDLERS_DIR, 'permission-request.ts'),
         'utf-8'
       );
 
@@ -242,7 +249,7 @@ describe('Hook Handler Tests', () => {
 
       for (const handler of handlers) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`,
+          join(HANDLERS_DIR, `${handler}.ts`),
           'utf-8'
         );
         expect(content).toContain('SyncHookJSONOutput');
@@ -263,7 +270,7 @@ describe('Hook Handler Tests', () => {
 
       for (const { handler, type } of handlerTypes) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`,
+          join(HANDLERS_DIR, `${handler}.ts`),
           'utf-8'
         );
         expect(content).toContain(type);
@@ -273,50 +280,47 @@ describe('Hook Handler Tests', () => {
 
   describe('Handler Logging Patterns', () => {
     it('all handlers call log function', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const { readdir } = await import('node:fs/promises');
+      const { readFile, readdir } = await import('node:fs/promises');
 
-      const files = await readdir('C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers');
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test'));
+      const files = await readdir(HANDLERS_DIR);
+      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
 
       for (const file of handlerFiles) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${file}`,
+          join(HANDLERS_DIR, file),
           'utf-8'
         );
-        expect(content).toContain('await log(');
+        expect(content, `${file} should call log()`).toContain('await log(');
       }
     });
 
     it('all handlers call readInput', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const { readdir } = await import('node:fs/promises');
+      const { readFile, readdir } = await import('node:fs/promises');
 
-      const files = await readdir('C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers');
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test'));
+      const files = await readdir(HANDLERS_DIR);
+      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
 
       for (const file of handlerFiles) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${file}`,
+          join(HANDLERS_DIR, file),
           'utf-8'
         );
-        expect(content).toContain('readInput');
+        expect(content, `${file} should call readInput()`).toContain('readInput');
       }
     });
 
     it('all handlers call writeOutput', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const { readdir } = await import('node:fs/promises');
+      const { readFile, readdir } = await import('node:fs/promises');
 
-      const files = await readdir('C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers');
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test'));
+      const files = await readdir(HANDLERS_DIR);
+      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
 
       for (const file of handlerFiles) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${file}`,
+          join(HANDLERS_DIR, file),
           'utf-8'
         );
-        expect(content).toContain('writeOutput');
+        expect(content, `${file} should call writeOutput()`).toContain('writeOutput');
       }
     });
   });
@@ -325,7 +329,7 @@ describe('Hook Handler Tests', () => {
     it('session-start handles fetch errors gracefully', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\session-start.ts',
+        join(HANDLERS_DIR, 'session-start.ts'),
         'utf-8'
       );
 
@@ -336,7 +340,7 @@ describe('Hook Handler Tests', () => {
     it('session-end handles shutdown errors gracefully', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\session-end.ts',
+        join(HANDLERS_DIR, 'session-end.ts'),
         'utf-8'
       );
 
@@ -359,7 +363,7 @@ describe('Hook Handler Tests', () => {
 
       for (const handler of handlers) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`,
+          join(HANDLERS_DIR, `${handler}.ts`),
           'utf-8'
         );
         expect(content).toContain('@fileoverview');
@@ -380,7 +384,7 @@ describe('Hook Handler Tests', () => {
 
       for (const handler of handlers) {
         const content = await readFile(
-          `C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\${handler}.ts`,
+          join(HANDLERS_DIR, `${handler}.ts`),
           'utf-8'
         );
         expect(content).toContain('## Capabilities');
@@ -393,7 +397,7 @@ describe('Hook Handler Tests', () => {
     it('pre-tool-use calls heartbeat with tool increment', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\pre-tool-use.ts',
+        join(HANDLERS_DIR, 'pre-tool-use.ts'),
         'utf-8'
       );
 
@@ -404,7 +408,7 @@ describe('Hook Handler Tests', () => {
     it('user-prompt-submit calls heartbeat with message increment', async () => {
       const { readFile } = await import('node:fs/promises');
       const content = await readFile(
-        'C:\\Users\\bobby\\src\\claude\\claude-bun-win11-hooks\\.claude\\hooks\\handlers\\user-prompt-submit.ts',
+        join(HANDLERS_DIR, 'user-prompt-submit.ts'),
         'utf-8'
       );
 

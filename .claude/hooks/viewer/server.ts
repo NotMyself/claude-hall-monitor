@@ -3,6 +3,7 @@ import { LogFileWatcher } from "./watcher";
 import { PlanWatcher } from "./plan-watcher";
 import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanUpdateMessage } from "./types";
 import { DashboardService } from "./dashboard";
+import { SessionSummaryService } from "./session-summary";
 
 /**
  * MIME types for static files
@@ -31,6 +32,11 @@ const dashboardService = new DashboardService();
  */
 const planWatcher = new PlanWatcher();
 planWatcher.start();
+
+/**
+ * Session summary service instance
+ */
+const sessionSummaryService = new SessionSummaryService();
 
 const currentSessionId = process.env[CURRENT_SESSION_ENV] || null;
 
@@ -252,6 +258,21 @@ async function handleRequest(request: Request): Promise<Response> {
       console.error("Dashboard error:", error);
       return Response.json(
         { error: "Failed to load dashboard data" },
+        { status: 500 }
+      );
+    }
+  }
+
+  // Route: GET /api/summaries -> Claude Code session summaries
+  if (path === "/api/summaries" && request.method === "GET") {
+    try {
+      const project = url.searchParams.get("project") || undefined;
+      const data = await sessionSummaryService.getSummaries(project);
+      return Response.json(data);
+    } catch (error) {
+      console.error("Session summaries error:", error);
+      return Response.json(
+        { error: "Failed to load session summaries" },
         { status: 500 }
       );
     }

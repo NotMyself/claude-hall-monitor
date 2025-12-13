@@ -230,3 +230,31 @@ export interface PlanUpdateMessage {
   plan: PlanInfo;
   timestamp: string;
 }
+
+// ===== Session Summary Types =====
+
+/**
+ * Claude Code session summary from ~/.claude/projects/
+ */
+export interface ClaudeSessionSummary {
+  session_id: string;
+  project_path: string;
+  project_name: string;
+  description: string;
+  message_count: number;
+  turn_count: number;
+  last_activity: string;
+  first_activity: string;
+  total_tokens: number;
+  file_size: number;
+}
+
+/**
+ * Response from /api/summaries endpoint
+ */
+export interface SessionSummariesResponse {
+  summaries: ClaudeSessionSummary[];
+  projects: string[];
+  current_project: string | null;
+  last_updated: string;
+}
