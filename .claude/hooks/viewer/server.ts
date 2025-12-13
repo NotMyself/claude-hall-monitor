@@ -1,6 +1,7 @@
 import { SERVER_CONFIG, PATHS, SSE_CONFIG, CURRENT_SESSION_ENV, TIMING } from "./config";
 import { LogFileWatcher } from "./watcher";
-import type { LogEntry, SSEMessage, SessionListResponse } from "./types";
+import { PlanWatcher } from "./plan-watcher";
+import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanUpdateMessage } from "./types";
 import { DashboardService } from "./dashboard";
 
 /**
@@ -24,6 +25,12 @@ watcher.start();
  * Dashboard service instance
  */
 const dashboardService = new DashboardService();
+
+/**
+ * Plan watcher instance
+ */
+const planWatcher = new PlanWatcher();
+planWatcher.start();
 
 const currentSessionId = process.env[CURRENT_SESSION_ENV] || null;
 
@@ -129,6 +136,62 @@ function handleSSE(request: Request): Response {
 }
 
 /**
+ * Handle SSE connection for plan updates
+ */
+function handlePlanSSE(): Response {
+  const encoder = new TextEncoder();
+  let heartbeatInterval: Timer | null = null;
+  let unsubscribe: (() => void) | null = null;
+
+  const stream = new ReadableStream({
+    start(controller) {
+      // Send initial plans
+      const plans = planWatcher.getAllPlans();
+      controller.enqueue(encoder.encode(formatSSE("plans", plans)));
+
+      // Subscribe to updates
+      unsubscribe = planWatcher.subscribe((plan) => {
+        try {
+          const message: PlanUpdateMessage = {
+            type: "plan_updated",
+            plan,
+            timestamp: new Date().toISOString(),
+          };
+          controller.enqueue(encoder.encode(formatSSE("plan_update", message)));
+        } catch {
+          // Client disconnected
+        }
+      });
+
+      // Start heartbeat
+      heartbeatInterval = setInterval(() => {
+        try {
+          controller.enqueue(
+            encoder.encode(formatSSE("heartbeat", { timestamp: new Date().toISOString() }))
+          );
+        } catch {
+          // Client disconnected
+        }
+      }, SSE_CONFIG.HEARTBEAT_INTERVAL);
+    },
+
+    cancel() {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      if (unsubscribe) unsubscribe();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "Access-Control-Allow-Origin": "*",
+    },
+  });
+}
+
+/**
  * Main request handler
  */
 async function handleRequest(request: Request): Promise<Response> {
@@ -200,6 +263,7 @@ async function handleRequest(request: Request): Promise<Response> {
     // Respond before shutting down
     setTimeout(() => {
       watcher.stop();
+      planWatcher.stop();
       server.stop();
       process.exit(0);
     }, TIMING.SHUTDOWN_DELAY_MS);
@@ -209,6 +273,33 @@ async function handleRequest(request: Request): Promise<Response> {
         "Access-Control-Allow-Origin": "*",
       },
     });
+  }
+
+  // Route: GET /api/plans -> List all plans
+  if (path === "/api/plans" && request.method === "GET") {
+    const includeCompleted = url.searchParams.get("completed") !== "false";
+    const plans = planWatcher.getAllPlans(includeCompleted);
+    const response: PlanListResponse = {
+      plans,
+      activePlans: plans.filter((p) => p.status === "active").length,
+      completedPlans: plans.filter((p) => p.status === "completed").length,
+    };
+    return Response.json(response);
+  }
+
+  // Route: GET /api/plans/:name -> Get specific plan data
+  if (path.startsWith("/api/plans/") && request.method === "GET") {
+    const name = path.replace("/api/plans/", "");
+    const plan = planWatcher.getPlan(name);
+    if (!plan) {
+      return Response.json({ error: "Plan not found" }, { status: 404 });
+    }
+    return Response.json(plan);
+  }
+
+  // Route: GET /events/plans -> SSE stream for plan updates
+  if (path === "/events/plans" && request.method === "GET") {
+    return handlePlanSSE();
   }
 
   // 404 for unknown routes
@@ -233,6 +324,7 @@ console.log(`🔍 Hook Viewer running at ${SERVER_CONFIG.URL}`);
 process.on("SIGINT", () => {
   console.log("\nShutting down...");
   watcher.stop();
+  planWatcher.stop();
   server.stop();
   process.exit(0);
 });

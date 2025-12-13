@@ -1133,3 +1133,372 @@ main {
   max-height: 0;
   margin-top: 0;
 }
+
+/* ===== Plan Tracker Styles ===== */
+
+.plan-tracker {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px;
+}
+
+.plan-controls {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.plan-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9em;
+  color: var(--text-secondary);
+}
+
+.plan-controls label:hover {
+  color: var(--text-primary);
+}
+
+.plan-count {
+  margin-left: auto;
+  font-size: 0.85em;
+  color: var(--text-secondary);
+}
+
+.plan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+@media (max-width: 500px) {
+  .plan-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.plan-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.plan-card.status-active {
+  border-left: 4px solid #3B82F6;
+}
+
+.plan-card.status-completed {
+  border-left: 4px solid #10B981;
+}
+
+.plan-card-header {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.plan-card-header:hover {
+  background: var(--bg-secondary);
+}
+
+.plan-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.plan-title h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.plan-status-badge {
+  font-size: 0.75rem;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-weight: 500;
+}
+
+.plan-status-badge.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3B82F6;
+}
+
+.plan-status-badge.completed {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10B981;
+}
+
+[data-theme="dark"] .plan-status-badge.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60A5FA;
+}
+
+[data-theme="dark"] .plan-status-badge.completed {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+}
+
+.plan-description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.plan-progress {
+  margin-bottom: 4px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #10B981;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.progress-fill.has-failed {
+  background: linear-gradient(90deg, #10B981, #EF4444);
+}
+
+.progress-fill.in-progress {
+  background: #3B82F6;
+  animation: progress-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.plan-card-content {
+  padding: 16px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.feature-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.feature-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.feature-item:hover {
+  background: var(--bg-secondary);
+  margin: 0 -16px;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+.feature-item:last-child {
+  border-bottom: none;
+}
+
+.feature-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.feature-status-dot.pending {
+  background: #9CA3AF;
+}
+
+.feature-status-dot.in_progress {
+  background: #3B82F6;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.feature-status-dot.completed {
+  background: #10B981;
+}
+
+.feature-status-dot.failed {
+  background: #EF4444;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.3); opacity: 0.7; }
+}
+
+.feature-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.feature-title {
+  font-weight: 500;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.feature-meta {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feature-layer {
+  display: inline-block;
+  padding: 2px 6px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
+.feature-details {
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+
+.feature-details p {
+  margin: 0 0 10px 0;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.feature-details h4 {
+  margin: 12px 0 6px 0;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+}
+
+.feature-details h4:first-child {
+  margin-top: 0;
+}
+
+.feature-details ul {
+  margin: 0;
+  padding-left: 16px;
+}
+
+.feature-details li {
+  margin-bottom: 4px;
+  color: var(--text-primary);
+}
+
+.plan-empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+}
+
+.plan-empty h3 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.plan-empty p {
+  margin: 0;
+}
+
+/* Layer grouping */
+.layer-group {
+  margin-bottom: 16px;
+}
+
+.layer-group:last-child {
+  margin-bottom: 0;
+}
+
+.layer-header {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+/* Plan tracker scrollbar */
+.plan-tracker {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-primary);
+}
+
+.plan-tracker::-webkit-scrollbar {
+  width: 8px;
+}
+
+.plan-tracker::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+  border-radius: 4px;
+}
+
+.plan-tracker::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.plan-tracker::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+.plan-card-content {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg-secondary);
+}
+
+.plan-card-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.plan-card-content::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+  border-radius: 3px;
+}
+
+.plan-card-content::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.plan-card-content::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
