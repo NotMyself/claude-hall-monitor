@@ -250,7 +250,8 @@ async function handleRequest(request: Request): Promise<Response> {
         headers: { "Retry-After": "60" },
       });
     }
-    const session = url.searchParams.get("session") || currentSessionId;
+    const rawSession = url.searchParams.get("session");
+    const session = validateSessionId(rawSession) || currentSessionId;
     if (session && session !== watcher.getCurrentSessionId()) {
       watcher.setSession(session);
     }
