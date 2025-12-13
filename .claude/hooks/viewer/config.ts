@@ -58,6 +58,24 @@ export const PATHS = {
 
   /** Path to settings.json */
   SETTINGS_FILE: resolve(import.meta.dir, "..", "..", "settings.json"),
+
+  /** Project root directory (parent of .claude) */
+  PROJECT_ROOT: resolve(import.meta.dir, "..", "..", ".."),
+
+  /** Directory containing active plans */
+  get DEV_ACTIVE_DIR() {
+    return join(this.PROJECT_ROOT, "dev", "active");
+  },
+
+  /** Directory containing completed plans */
+  get DEV_COMPLETE_DIR() {
+    return join(this.PROJECT_ROOT, "dev", "complete");
+  },
+
+  /** Get path to a plan's features.json */
+  getPlanFeaturesPath(planDir: string): string {
+    return join(planDir, "features.json");
+  },
 } as const;
 
 /**
@@ -113,4 +131,15 @@ export const TIMING = {
 
   /** SSE heartbeat interval in milliseconds */
   SSE_HEARTBEAT_INTERVAL_MS: 30_000,
+} as const;
+
+/**
+ * Plan tracker configuration
+ */
+export const PLAN_CONFIG = {
+  /** Poll interval for plan file changes in milliseconds */
+  POLL_INTERVAL_MS: 1_000, // 1 second for responsive updates during orchestration
+
+  /** Maximum number of completed plans to show */
+  MAX_COMPLETED_PLANS: 10,
 } as const;

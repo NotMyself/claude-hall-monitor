@@ -1,0 +1,154 @@
+{
+  "project": "plan-tracker",
+  "version": "1.0.0",
+  "description": "Realtime plan orchestration tracker tab for Claude Hall Monitor viewer",
+  "features": [
+    {
+      "id": "types",
+      "title": "Plan Tracker Type Definitions",
+      "layer": 1,
+      "status": "completed",
+      "description": "Add TypeScript interfaces for plan tracking data structures",
+      "acceptanceCriteria": [
+        "PlanFeature interface defined with id, title, status, layer, description, etc.",
+        "PlanData interface defined with project, version, features array, layers",
+        "PlanInfo interface for plan list (name, path, featureCount, completedCount, status)",
+        "PlanTrackerData interface aggregates all plan data",
+        "Type check passes with no errors"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit",
+      "dependencies": [],
+      "files": [".claude/hooks/viewer/types.ts"]
+    },
+    {
+      "id": "config",
+      "title": "Plan Tracker Configuration",
+      "layer": 1,
+      "status": "completed",
+      "description": "Add paths and configuration for plan directories",
+      "acceptanceCriteria": [
+        "PATHS includes DEV_ACTIVE_DIR and DEV_COMPLETE_DIR",
+        "PLAN_CONFIG defines poll interval and other settings",
+        "Paths resolve correctly relative to project root",
+        "Type check passes"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit",
+      "dependencies": [],
+      "files": [".claude/hooks/viewer/config.ts"]
+    },
+    {
+      "id": "plan-watcher",
+      "title": "Plan File Watcher",
+      "layer": 2,
+      "status": "completed",
+      "description": "Create PlanWatcher class to watch features.json files for changes",
+      "acceptanceCriteria": [
+        "PlanWatcher class created in viewer/plan-watcher.ts",
+        "Watches dev/active/**/features.json for changes",
+        "Emits events when features.json is modified",
+        "Provides getAllPlans() to list all plans",
+        "Provides getPlan(name) to get specific plan data",
+        "Type check passes"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit",
+      "dependencies": ["types", "config"],
+      "files": [".claude/hooks/viewer/plan-watcher.ts"]
+    },
+    {
+      "id": "api-endpoints",
+      "title": "Plan Tracker API Endpoints",
+      "layer": 3,
+      "status": "completed",
+      "description": "Add /api/plans endpoints and SSE support to server",
+      "acceptanceCriteria": [
+        "GET /api/plans returns list of all plans with summary info",
+        "GET /api/plans/:name returns full plan data",
+        "GET /events/plans provides SSE stream for plan updates",
+        "Endpoints handle errors gracefully",
+        "Type check passes"
+      ],
+      "verification": "cd .claude/hooks && bun run tsc --noEmit",
+      "dependencies": ["plan-watcher"],
+      "files": [".claude/hooks/viewer/server.ts"]
+    },
+    {
+      "id": "plan-styles",
+      "title": "Plan Tracker CSS Styles",
+      "layer": 4,
+      "status": "completed",
+      "description": "Add CSS styles for plan tracker components",
+      "acceptanceCriteria": [
+        ".plan-tracker container styles added",
+        ".plan-card with header, progress bar, feature list",
+        ".feature-item with status indicator (pending=gray, in_progress=blue, completed=green, failed=red)",
+        ".progress-bar showing percentage complete",
+        ".plan-controls for filtering active/complete plans",
+        "Dark theme variants included"
+      ],
+      "verification": "grep -q 'plan-tracker' .claude/hooks/viewer/styles/theme.css",
+      "dependencies": [],
+      "files": [".claude/hooks/viewer/styles/theme.css"]
+    },
+    {
+      "id": "plan-component",
+      "title": "Plan Tracker Vue Component",
+      "layer": 4,
+      "status": "completed",
+      "description": "Add plan-tracker-view Vue component to index.html",
+      "acceptanceCriteria": [
+        "Plans tab added to tabs array",
+        "plan-tracker-view component renders plan cards",
+        "Each plan shows progress bar with completion percentage",
+        "Feature list with expandable details",
+        "Status badges color-coded by feature status",
+        "Toggle to show/hide completed plans",
+        "Auto-refresh via SSE when plans change",
+        "Layer grouping option for features"
+      ],
+      "verification": "grep -q 'plan-tracker-view' .claude/hooks/viewer/index.html",
+      "dependencies": ["api-endpoints", "plan-styles"],
+      "files": [".claude/hooks/viewer/index.html"]
+    },
+    {
+      "id": "unit-tests",
+      "title": "Plan Tracker Unit Tests",
+      "layer": 5,
+      "status": "completed",
+      "description": "Add unit tests for plan watcher and components",
+      "acceptanceCriteria": [
+        "Tests for PlanWatcher.getAllPlans()",
+        "Tests for plan status calculation (pending/in_progress/completed)",
+        "Tests for API endpoint responses",
+        "All tests pass"
+      ],
+      "verification": "cd .claude/hooks && bun run test:run",
+      "dependencies": ["plan-watcher", "plan-component"],
+      "files": [".claude/hooks/viewer/__tests__/plan-watcher.test.ts"]
+    },
+    {
+      "id": "e2e-validation",
+      "title": "E2E Plan Tracker Validation",
+      "layer": 6,
+      "status": "completed",
+      "description": "Validate plan tracker functionality manually",
+      "acceptanceCriteria": [
+        "Plans tab is clickable and switches view",
+        "Active plans display with correct feature status",
+        "Progress bars show accurate completion percentages",
+        "Real-time updates work when features.json changes",
+        "No console errors"
+      ],
+      "verification": "Manual validation with viewer running",
+      "dependencies": ["plan-component", "unit-tests"],
+      "files": []
+    }
+  ],
+  "layers": {
+    "1": "Foundation (Types, Config)",
+    "2": "Watcher Infrastructure",
+    "3": "Backend API",
+    "4": "Frontend UI (parallel)",
+    "5": "Unit Testing",
+    "6": "E2E Validation"
+  }
+}

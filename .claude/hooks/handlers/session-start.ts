@@ -105,14 +105,27 @@ async function isViewerRunning(): Promise<boolean> {
 }
 
 /**
+ * Normalize path to forward slashes for cross-platform compatibility
+ * Windows cmd.exe has issues with backslashes in quoted paths
+ */
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, "/");
+}
+
+/**
  * Start the viewer server as a detached background process
  */
 function startViewerServer(session_id: string): void {
-  const viewerPath = join(import.meta.dir, "..", "viewer", "server.ts");
+  const viewerPath = normalizePath(join(import.meta.dir, "..", "viewer", "server.ts"));
 
   try {
-    // Spawn detached process that survives parent exit
-    const proc = spawn(["bun", "run", viewerPath], {
+    // Use PowerShell on Windows for reliable background process spawning
+    // cmd.exe's "start /b" has issues with path handling in Bun's spawn
+    const cmd = process.platform === "win32"
+      ? ["powershell", "-NoProfile", "-Command", `Start-Process -NoNewWindow -FilePath bun -ArgumentList 'run', '${viewerPath}'`]
+      : ["sh", "-c", `bun run "${viewerPath}" &`];
+
+    const proc = spawn(cmd, {
       env: {
         ...process.env,
         [CURRENT_SESSION_ENV]: session_id,

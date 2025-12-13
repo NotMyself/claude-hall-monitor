@@ -164,6 +164,75 @@ export interface DashboardData {
   lastUpdated: string;
 }
 
+// ===== Plan Tracker Types =====
+
+/**
+ * Feature status in a plan
+ */
+export type FeatureStatus = "pending" | "in_progress" | "completed" | "failed";
+
+/**
+ * A single feature in a plan
+ */
+export interface PlanFeature {
+  id: string;
+  title: string;
+  layer: number;
+  status: FeatureStatus;
+  description: string;
+  acceptanceCriteria: string[];
+  verification: string;
+  dependencies: string[];
+  files: string[];
+}
+
+/**
+ * Complete plan data from features.json
+ */
+export interface PlanData {
+  project: string;
+  version: string;
+  description: string;
+  features: PlanFeature[];
+  layers: Record<string, string>;
+}
+
+/**
+ * Summary info for plan list
+ */
+export interface PlanInfo {
+  name: string;
+  path: string;
+  project: string;
+  description: string;
+  featureCount: number;
+  completedCount: number;
+  inProgressCount: number;
+  failedCount: number;
+  status: "active" | "completed";
+  lastModified: string;
+}
+
+/**
+ * Response from /api/plans endpoint
+ */
+export interface PlanListResponse {
+  plans: PlanInfo[];
+  activePlans: number;
+  completedPlans: number;
+}
+
+/**
+ * SSE message for plan updates
+ */
+export interface PlanUpdateMessage {
+  type: "plan_updated" | "plan_added" | "plan_removed";
+  plan: PlanInfo;
+  timestamp: string;
+}
+
+// ===== Session Summary Types =====
+
 /**
  * Claude Code session summary from ~/.claude/projects/
  */
