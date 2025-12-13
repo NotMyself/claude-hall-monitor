@@ -110,4 +110,4 @@ async function main(): Promise<void> {
   writeOutput(output);
 }
 
-main();
+await main();

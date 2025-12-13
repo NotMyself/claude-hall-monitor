@@ -174,4 +174,4 @@ async function main(): Promise<void> {
 }
 
 // Run the main function
-main();
+await main();
