@@ -4,9 +4,11 @@ import { PlanWatcher } from "./plan-watcher";
 import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanUpdateMessage } from "./types";
 import { DashboardService } from "./dashboard";
 import { SessionSummaryService } from "./session-summary";
-import { validatePlanName, sanitizePathComponent, validatePathWithinBase, validateSessionId } from "./security";
+import { validatePlanName, sanitizePathComponent, validatePathWithinBase, validateSessionId, generateAuthToken, verifyAuthToken } from "./security";
 import { RateLimiter, DEFAULT_RATE_LIMIT } from "./rate-limiter";
 
+// Generate auth token on startup (allow env var override for testing)
+const AUTH_TOKEN = process.env.CLAUDE_HOOKS_VIEWER_TOKEN || generateAuthToken();
 
 /**
  * MIME types for static files
@@ -311,6 +313,17 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: POST /shutdown -> Gracefully shut down the server
   if (path === "/shutdown" && request.method === "POST") {
+    // Verify authentication
+    const authHeader = request.headers.get("Authorization");
+    if (!verifyAuthToken(authHeader, AUTH_TOKEN)) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": "Bearer",
+        },
+      });
+    }
 
     console.log("\n🛑 Shutdown requested via API");
     // Respond before shutting down
@@ -385,6 +398,7 @@ const server = Bun.serve({
 });
 
 console.log(`🔍 Hook Viewer running at ${SERVER_CONFIG.URL}`);
+console.log(`🔑 Shutdown token: ${AUTH_TOKEN}`);
 
 /**
  * Graceful shutdown

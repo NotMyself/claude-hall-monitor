@@ -129,3 +129,22 @@ export function validatePlanName(name: string): string | null {
 
   return decoded;
 }
+
+/**
+ * Generate a secure random token for authentication.
+ */
+export function generateAuthToken(): string {
+  return randomBytes(32).toString("hex");
+}
+
+/**
+ * Verify an authorization header matches the expected token.
+ */
+export function verifyAuthToken(
+  header: string | null,
+  expectedToken: string
+): boolean {
+  if (!header) return false;
+  const token = header.replace(/^Bearer\s+/i, "");
+  return token === expectedToken;
+}
