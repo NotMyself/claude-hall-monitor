@@ -70,8 +70,8 @@ export class LogFileWatcher {
 
       const content = readFileSync(logPath, "utf-8");
       return this.parseLines(content);
-    } catch {
-      // File doesn't exist or can't be read
+    } catch (error) {
+      console.error("Failed to read log file:", error);
       return [];
     }
   }
@@ -102,7 +102,9 @@ export class LogFileWatcher {
             first_entry = firstParsed.timestamp ?? '';
             last_entry = lastParsed.timestamp ?? '';
           }
-        } catch {}
+        } catch (error) {
+          console.error("Failed to parse session timestamps:", error);
+        }
       }
 
       return {
@@ -131,7 +133,8 @@ export class LogFileWatcher {
     try {
       const file = Bun.file(logPath);
       return file.size;
-    } catch {
+    } catch (error) {
+      console.error("Failed to get file size:", error);
       return 0;
     }
   }
@@ -147,12 +150,16 @@ export class LogFileWatcher {
       try {
         const file = Bun.file(logPath);
         const slice = file.slice(this.lastSize, currentSize);
-        slice.text().then((content) => {
-          const entries = this.parseLines(content);
-          for (const entry of entries) {
-            this.emit(entry);
-          }
-        });
+        slice.text()
+          .then((content) => {
+            const entries = this.parseLines(content);
+            for (const entry of entries) {
+              this.emit(entry);
+            }
+          })
+          .catch((error) => {
+            console.error("Error reading log file slice:", error);
+          });
       } catch (error) {
         console.error("Error reading log file:", error);
       }
@@ -172,8 +179,8 @@ export class LogFileWatcher {
       try {
         const entry = JSON.parse(line) as LogEntry;
         entries.push(entry);
-      } catch {
-        // Skip invalid JSON lines
+      } catch (error) {
+        console.error("Failed to parse JSON line:", error);
       }
     }
 
