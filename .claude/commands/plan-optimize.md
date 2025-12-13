@@ -1,6 +1,6 @@
 ---
 description: Optimize a project spec for sub-agent implementation using progressive disclosure and Anthropic's long-running agent techniques
-argument-hint: "<spec-file-path> <output-directory>"
+argument-hint: "<plan-file-path>"
 ---
 
 # Optimize Project Spec for Sub-Agent Implementation
@@ -9,8 +9,8 @@ Transform a project specification into an optimized implementation plan designed
 
 ## Input
 
-- **Spec file**: $ARGUMENTS (first argument) - Path to the project specification markdown file
-- **Output dir**: $ARGUMENTS (second argument) - Directory for the optimized plan output
+- **Plan file**: $ARGUMENTS - Path to the plan markdown file (e.g., `dev/active/my-feature/plan.md`)
+- **Output dir**: Derived from plan file's parent directory (e.g., `dev/active/my-feature/`)
 
 ## Techniques to Apply
 
