@@ -5,6 +5,7 @@ import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanU
 import { DashboardService } from "./dashboard";
 import { SessionSummaryService } from "./session-summary";
 import { validatePlanName, sanitizePathComponent, validatePathWithinBase } from "./security";
+import { RateLimiter, DEFAULT_RATE_LIMIT } from "./rate-limiter";
 
 /**
  * MIME types for static files
@@ -38,6 +39,11 @@ planWatcher.start();
  * Session summary service instance
  */
 const sessionSummaryService = new SessionSummaryService();
+
+/**
+ * Rate limiter for SSE connections
+ */
+const sseRateLimiter = new RateLimiter(DEFAULT_RATE_LIMIT);
 
 const currentSessionId = process.env[CURRENT_SESSION_ENV] || null;
 
@@ -212,7 +218,20 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: GET /styles/* -> static CSS files
   if (path.startsWith("/styles/") && request.method === "GET") {
-    const filePath = `${PATHS.STYLES_DIR}${path.replace("/styles", "")}`;
+    const requestedFile = path.replace("/styles/", "");
+
+    // Sanitize the path component
+    const sanitizedFile = sanitizePathComponent(requestedFile);
+    if (!sanitizedFile) {
+      return new Response("Bad Request", { status: 400 });
+    }
+
+    // Validate path is within styles directory
+    const filePath = validatePathWithinBase(sanitizedFile, PATHS.STYLES_DIR);
+    if (!filePath) {
+      return new Response("Forbidden", { status: 403 });
+    }
+
     return serveFile(filePath);
   }
 
@@ -223,6 +242,14 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: GET /events -> SSE stream
   if (path === "/events" && request.method === "GET") {
+    // Use a simple IP - all connections are localhost after F002
+    const clientIP = "127.0.0.1";
+    if (!sseRateLimiter.isAllowed(clientIP)) {
+      return new Response("Too Many Requests", {
+        status: 429,
+        headers: { "Retry-After": "60" },
+      });
+    }
     const session = url.searchParams.get("session") || currentSessionId;
     if (session && session !== watcher.getCurrentSessionId()) {
       watcher.setSession(session);
@@ -328,6 +355,14 @@ async function handleRequest(request: Request): Promise<Response> {
 
   // Route: GET /events/plans -> SSE stream for plan updates
   if (path === "/events/plans" && request.method === "GET") {
+    // Use a simple IP - all connections are localhost after F002
+    const clientIP = "127.0.0.1";
+    if (!sseRateLimiter.isAllowed(clientIP)) {
+      return new Response("Too Many Requests", {
+        status: 429,
+        headers: { "Retry-After": "60" },
+      });
+    }
     return handlePlanSSE();
   }
 
@@ -354,6 +389,7 @@ process.on("SIGINT", () => {
   console.log("\nShutting down...");
   watcher.stop();
   planWatcher.stop();
+  sseRateLimiter.stop();
   server.stop();
   process.exit(0);
 });
