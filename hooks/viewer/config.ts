@@ -54,13 +54,13 @@ export const PATHS = {
   COMMANDS_DIR: resolve(import.meta.dir, "..", "..", "commands"),
 
   /** Path to skills directory */
-  SKILLS_DIR: resolve(import.meta.dir, "..", "..", "skills"),
+  SKILLS_DIR: resolve(import.meta.dir, "..", "..", ".claude", "skills"),
 
   /** Path to settings.json */
-  SETTINGS_FILE: resolve(import.meta.dir, "..", "..", "settings.json"),
+  SETTINGS_FILE: resolve(import.meta.dir, "..", "..", ".claude", "settings.json"),
 
   /** Project root directory (parent of .claude) */
-  PROJECT_ROOT: resolve(import.meta.dir, "..", "..", ".."),
+  PROJECT_ROOT: resolve(import.meta.dir, "..", ".."),
 
   /** Directory containing active plans */
   get DEV_ACTIVE_DIR() {
