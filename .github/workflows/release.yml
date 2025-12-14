@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: |
+          cd hooks
+          bun install
+
+      - name: Run tests
+        run: |
+          cd hooks
+          bun run test:run
+
+      - name: Build bundles
+        run: bun run build.ts
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Create release archive
+        run: |
+          mkdir -p release/claude-hall-monitor
+          cp -r .claude-plugin release/claude-hall-monitor/
+          cp -r dist release/claude-hall-monitor/
+          cp -r rules release/claude-hall-monitor/
+          cp -r commands release/claude-hall-monitor/
+          cp README.md release/claude-hall-monitor/
+          cp CHANGELOG.md release/claude-hall-monitor/
+          cd release
+          zip -r claude-hall-monitor-${{ steps.version.outputs.VERSION }}.zip claude-hall-monitor
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/claude-hall-monitor-${{ steps.version.outputs.VERSION }}.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cross-platform-test:
+    needs: build
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build and test
+        run: |
+          cd hooks
+          bun install
+          bun run test:run
+
+      - name: Build bundles
+        run: bun run build.ts
+
+      - name: Test handler execution
+        run: |
+          echo '{"session_id":"test"}' | bun run dist/handlers/session-start.js
+        shell: bash
