@@ -130,13 +130,13 @@ Add entry to NotMyself/claude-dotnet-marketplace/`.claude-plugin/marketplace.jso
 
 ## Repository Strategy
 
-Create a new repository `NotMyself/claude-hall-monitor` rather than renaming the current repo. This keeps the original development repo intact while creating a clean distribution repo.
+Rename the current repository from `claude-bun-win11-hooks` to `claude-hall-monitor`. This repository serves as both the development and distribution repo.
 
 ## Decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Create new repo vs rename | User preference - keeps original development repo intact |
+| Rename existing repo | Single repo for development and distribution; simpler maintenance |
 | Bundle to JavaScript | Eliminates `bun install` step; faster startup; still requires Bun runtime |
 | Semantic versioning | Industry standard; start at 1.0.0 for initial release |
 | Keep a Changelog format | Standard format for documenting version history |
