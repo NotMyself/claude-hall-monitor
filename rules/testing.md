@@ -4,7 +4,7 @@ Tests use Vitest with happy-dom for browser API mocking.
 
 ## Test Location
 
-Tests live in `.claude/hooks/viewer/__tests__/`
+Tests live in `hooks/viewer/__tests__/`
 
 ## Test Types
 
@@ -15,7 +15,7 @@ Tests live in `.claude/hooks/viewer/__tests__/`
 ## Running Tests
 
 ```bash
-cd .claude/hooks
+cd hooks
 bun run test          # Watch mode
 bun run test:run      # Single run
 bun run test:coverage # With coverage

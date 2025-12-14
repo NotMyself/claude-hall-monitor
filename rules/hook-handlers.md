@@ -1,6 +1,6 @@
 # Hook Handler Conventions
 
-When creating or modifying hook handlers in `.claude/hooks/handlers/`:
+When creating or modifying hook handlers in `hooks/handlers/`:
 
 ## Structure
 
@@ -8,6 +8,7 @@ When creating or modifying hook handlers in `.claude/hooks/handlers/`:
 - Use types from `@anthropic-ai/claude-agent-sdk` for type safety
 - Log to unified `hooks-log.txt` using the shared logger
 - Output JSON to stdout for Claude Code to consume
+- Build script bundles TypeScript to standalone JavaScript in `dist/handlers/`
 
 ## Required Imports
 

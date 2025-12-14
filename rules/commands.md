@@ -1,6 +1,6 @@
 # Project Commands
 
-All commands run from `.claude/hooks` directory unless otherwise specified.
+All commands run from `hooks/` directory unless otherwise specified.
 
 ## Development
 
@@ -10,6 +10,9 @@ bun install
 
 # Type check
 bun run tsc --noEmit
+
+# Build plugin (bundles to dist/)
+bun run build
 
 # Start realtime log viewer
 bun run viewer

@@ -4,7 +4,7 @@ All hooks use structured JSONL logging via the shared logger utility.
 
 ## Log File
 
-All logs append to `.claude/hooks/hooks-log.txt`
+All logs append to `hooks/hooks-log.txt`
 
 ## JSONL Schema
 
@@ -14,7 +14,7 @@ All logs append to `.claude/hooks/hooks-log.txt`
 
 ## Logger Utility
 
-Located in `utils/logger.ts`:
+Located in `hooks/utils/logger.ts`:
 
 ```typescript
 import { log, readInput, writeOutput } from '../utils/logger';

@@ -1,37 +1,53 @@
-# Claude Code Hooks with Bun
+# Claude Hall Monitor
 
-A complete implementation of all 12 Claude Code hooks using [Bun](https://bun.sh/) as the JavaScript runtime, featuring structured JSONL logging and Claude Hall Monitor - a realtime web-based log viewer.
+A Claude Code plugin featuring all 12 hooks with structured JSONL logging and a realtime web-based log viewer.
 
 ## Features
 
 - All 12 Claude Code hooks implemented with full TypeScript type safety
 - Structured JSONL logging for all hook events
-- Claude Hall Monitor web UI with SSE streaming for realtime log viewing
+- Realtime web UI with SSE streaming for live log viewing
 - Dark/light theme support
 - Event filtering and categorization
 - Comprehensive test coverage
+- Auto-start/shutdown lifecycle management
 
 ## Prerequisites
 
-- [Bun](https://bun.sh/) v1.0 or later
+- [Bun](https://bun.sh/) v1.0 or later - Required runtime for the plugin
 - [Claude Code CLI](https://claude.ai/code)
-- Windows 11 (tested), should work on macOS/Linux
 
-## Quick Start
+## Installation
 
-### 1. Clone and Install
+### Via Claude Marketplace (Recommended)
 
 ```bash
-git clone <repository-url>
-cd claude-bun-win11-hooks
-
-# Install dependencies
-cd .claude/hooks && bun install
+claude plugin install claude-hall-monitor
 ```
 
-### 2. Start Using
+### Manual Installation
 
-The hooks are automatically active when you run Claude Code in this directory. Claude Hall Monitor will automatically launch at http://localhost:3456 and gracefully shut down when you exit.
+1. Clone this repository:
+```bash
+git clone https://github.com/yourusername/claude-hall-monitor.git
+cd claude-hall-monitor
+```
+
+2. Build the plugin:
+```bash
+cd hooks && bun install && bun run build
+```
+
+3. Install locally:
+```bash
+claude plugin install /path/to/claude-hall-monitor
+```
+
+The plugin is distributed as bundled JavaScript with all dependencies inlined - users don't need to run `bun install` after installation.
+
+## Usage
+
+Once installed, the plugin is automatically active in all Claude Code sessions. Claude Hall Monitor will automatically launch at http://localhost:3456 when you start a session and gracefully shut down when you exit.
 
 ## Claude Hall Monitor (Log Viewer)
 
@@ -44,10 +60,12 @@ Claude Hall Monitor provides a web-based interface to monitor hook activity in r
 - **Themes**: Toggle between dark and light themes
 - **URL**: http://localhost:3456
 
-### Manual Start
+### Manual Start (Development)
+
+For development purposes, you can manually start the viewer:
 
 ```bash
-cd .claude/hooks
+cd hooks
 
 # Start the viewer
 bun run viewer
@@ -75,7 +93,7 @@ bun run viewer:dev
 
 ## Log Format
 
-All hooks write to `.claude/hooks/hooks-log.txt` in JSONL format:
+All hooks write to `hooks-log.txt` in JSONL format:
 
 ```json
 {"timestamp":"2024-12-11T14:30:00.000Z","event":"PreToolUse","session_id":"abc123","data":{"tool_name":"Read","tool_input":{...}}}
@@ -84,39 +102,53 @@ All hooks write to `.claude/hooks/hooks-log.txt` in JSONL format:
 ## Project Structure
 
 ```
-.claude/
-├── settings.json              # Hook configuration
-├── commands/                  # Custom slash commands
-│   ├── optimize-plan.md
-│   └── orchestrate-plan.md
-└── hooks/
-    ├── handlers/              # Hook handler scripts
-    │   ├── user-prompt-submit.ts
-    │   ├── pre-tool-use.ts
-    │   ├── post-tool-use.ts
-    │   ├── post-tool-use-failure.ts
-    │   ├── notification.ts
-    │   ├── session-start.ts
-    │   ├── session-end.ts
-    │   ├── stop.ts
-    │   ├── subagent-start.ts
-    │   ├── subagent-stop.ts
-    │   ├── pre-compact.ts
-    │   └── permission-request.ts
-    ├── logs/                  # Structured log output directory
-    ├── utils/
-    │   └── logger.ts          # Shared logging utilities
-    └── viewer/
-        ├── server.ts          # Bun HTTP server
-        ├── watcher.ts         # File watcher for logs
-        ├── index.html         # Vue.js web UI
-        ├── logo.svg           # Hall Monitor logo
-        ├── config.ts          # Configuration
-        ├── types.ts           # TypeScript types
-        ├── vitest.config.ts   # Test configuration
-        ├── styles/
-        │   └── theme.css      # Theme styles
-        └── __tests__/         # Test files
+claude-hall-monitor/
+├── .claude-plugin/
+│   ├── plugin.json            # Plugin manifest
+│   └── hooks.json             # Hook mappings
+├── dist/                      # Bundled JavaScript (auto-generated)
+│   ├── handlers/              # Bundled hook handlers
+│   └── viewer/                # Bundled viewer components
+├── hooks/
+│   ├── handlers/              # Hook handler TypeScript sources
+│   │   ├── user-prompt-submit.ts
+│   │   ├── pre-tool-use.ts
+│   │   ├── post-tool-use.ts
+│   │   ├── post-tool-use-failure.ts
+│   │   ├── notification.ts
+│   │   ├── session-start.ts
+│   │   ├── session-end.ts
+│   │   ├── stop.ts
+│   │   ├── subagent-start.ts
+│   │   ├── subagent-stop.ts
+│   │   ├── pre-compact.ts
+│   │   └── permission-request.ts
+│   ├── utils/
+│   │   └── logger.ts          # Shared logging utilities
+│   ├── viewer/
+│   │   ├── server.ts          # Bun HTTP server
+│   │   ├── watcher.ts         # File watcher for logs
+│   │   ├── index.html         # Vue.js web UI
+│   │   ├── logo.svg           # Hall Monitor logo
+│   │   ├── config.ts          # Configuration
+│   │   ├── types.ts           # TypeScript types
+│   │   ├── vitest.config.ts   # Test configuration
+│   │   ├── styles/
+│   │   │   └── theme.css      # Theme styles
+│   │   └── __tests__/         # Test files
+│   ├── build.ts               # Build script
+│   └── package.json           # Dependencies
+├── rules/                     # Coding conventions (auto-loaded)
+│   ├── commands.md
+│   ├── cross-platform.md
+│   ├── hook-handlers.md
+│   ├── logging.md
+│   ├── mcp-docker-networking.md
+│   └── testing.md
+└── commands/                  # Custom slash commands
+    ├── plan-new.md
+    ├── plan-optimize.md
+    └── plan-orchestrate.md
 ```
 
 ## Hook Output Capabilities
@@ -138,13 +170,13 @@ Hooks can return JSON to modify Claude Code behavior:
 ### Type Checking
 
 ```bash
-cd .claude/hooks && bun run tsc --noEmit
+cd hooks && bun run tsc --noEmit
 ```
 
 ### Running Tests
 
 ```bash
-cd .claude/hooks
+cd hooks
 
 # Watch mode
 bun run test
@@ -156,15 +188,27 @@ bun run test:run
 bun run test:coverage
 ```
 
+### Build Plugin
+
+```bash
+cd hooks && bun run build
+```
+
+This bundles all TypeScript sources into standalone JavaScript files in the `dist/` directory with all dependencies inlined.
+
 ### View Raw Logs
 
 ```bash
-cat .claude/hooks/hooks-log.txt
+cat hooks-log.txt
 ```
 
 ## Configuration
 
-Hook configuration is in `.claude/settings.json`. Each hook is configured with:
+When installed as a plugin, hooks are automatically configured via `.claude-plugin/hooks.json`. The plugin's bundled handlers execute automatically without additional setup.
+
+### Local Development
+
+For local development (not using the plugin), hook configuration is in `.claude/settings.json`:
 
 ```json
 {
@@ -175,7 +219,7 @@ Hook configuration is in `.claude/settings.json`. Each hook is configured with:
         "hooks": [
           {
             "type": "command",
-            "command": "bun run .claude/hooks/handlers/pre-tool-use.ts"
+            "command": "bun run hooks/handlers/pre-tool-use.ts"
           }
         ]
       }
