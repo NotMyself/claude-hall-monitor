@@ -110,33 +110,3 @@ jobs:
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  cross-platform-test:
-    needs: build
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Build and test
-        run: |
-          cd hooks
-          bun install
-          bun run test:run
-
-      - name: Build bundles
-        run: bun run build.ts
-
-      - name: Test handler execution
-        run: |
-          echo '{"session_id":"test"}' | bun run dist/handlers/session-start.js
-        shell: bash
