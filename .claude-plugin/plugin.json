@@ -1,9 +1,11 @@
 {
   "name": "claude-hall-monitor",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "All 12 hook handlers, realtime log viewer, rules, and slash commands for Claude Code",
-  "author": "NotMyself",
+  "author": {
+    "name": "Bobby Johnson",
+    "url": "https://github.com/NotMyself"
+  },
   "repository": "https://github.com/NotMyself/claude-hall-monitor",
-  "runtime": "bun",
   "keywords": ["hooks", "logging", "viewer", "monitoring"]
 }
