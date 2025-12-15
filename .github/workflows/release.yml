@@ -104,9 +104,6 @@ jobs:
           }
           PKGJSON
 
-          # Replace version placeholder
-          sed -i 's/\${{ steps.version.outputs.VERSION }}/${{ steps.version.outputs.VERSION }}/g' npm-package/package.json
-
       - name: Publish to GitHub Packages
         run: |
           cd npm-package
