@@ -4,9 +4,11 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-Claude Hall Monitor is a Claude Code plugin using Bun as the runtime. Features all 12 hooks with JSONL logging, realtime log viewer UI, and comprehensive tests. The plugin bundles TypeScript sources to standalone JavaScript with all dependencies inlined.
+Claude Hall Monitor is a Claude Code plugin using Bun as the runtime. Features all 12 hooks with structured metrics collection, SQLite storage, realtime log viewer UI with API, and comprehensive tests. The plugin bundles TypeScript sources to standalone JavaScript with all dependencies inlined.
 
 ## Architecture
+
+The plugin uses a **metrics-first architecture** with structured data collection, persistent storage, and real-time event streaming.
 
 ```
 claude-hall-monitor/
@@ -18,22 +20,91 @@ claude-hall-monitor/
 │   └── viewer/             # Bundled viewer components
 ├── hooks/
 │   ├── handlers/           # Hook handler scripts (TypeScript sources)
-│   ├── utils/              # Shared utilities (logger.ts)
-│   ├── viewer/             # Realtime log viewer web UI
+│   │   └── __tests__/      # Handler tests (88 tests)
+│   ├── metrics/            # Core metrics system
+│   │   ├── database.ts     # SQLite database layer
+│   │   ├── collector.ts    # Buffered metrics collection
+│   │   ├── types.ts        # Type definitions
+│   │   ├── config.ts       # Configuration management
+│   │   ├── pricing.ts      # Cost calculation
+│   │   ├── cost-calculator.ts # Token cost computation
+│   │   ├── aggregation-service.ts # Metrics aggregation
+│   │   ├── transcript-parser.ts # JSONL transcript parsing
+│   │   ├── plan-events.ts  # Plan orchestration tracking
+│   │   └── __tests__/      # Metrics tests (200 tests)
+│   ├── utils/              # Shared utilities
+│   │   ├── event-emitter.ts # Event bus pattern
+│   │   ├── validation.ts   # Input validation
+│   │   └── __tests__/      # Utils tests
+│   ├── viewer/             # Realtime viewer with REST API
+│   │   ├── server.ts       # HTTP server
+│   │   ├── api/            # REST endpoints
+│   │   │   ├── metrics.ts  # /api/metrics
+│   │   │   ├── sessions.ts # /api/sessions
+│   │   │   └── plans.ts    # /api/plans
+│   │   ├── sse/            # Server-Sent Events
+│   │   │   └── events.ts   # SSE streaming
+│   │   ├── security.ts     # Security utilities
+│   │   ├── rate-limiter.ts # Rate limiting
+│   │   └── __tests__/      # API tests (56 tests)
+│   ├── data/               # Runtime data directory
+│   │   └── metrics.db      # SQLite database (created at runtime)
 │   ├── build.ts            # Build script
-│   ├── hooks-log.txt       # Unified JSONL log file
+│   ├── hooks-log.txt       # Legacy JSONL log file
 │   └── package.json        # Dependencies
 ├── rules/                  # Actionable conventions (auto-loaded)
 ├── commands/               # Custom slash commands
 └── CLAUDE.md               # This file
 ```
 
-### Log Viewer
+### Metrics System
+
+The metrics system provides structured data collection and querying:
+
+- **Database**: SQLite with tables for `metrics` and `plan_events`
+- **Collector**: Buffered collection with automatic flushing (default: 5s or 100 entries)
+- **Event Emitter**: Real-time event broadcasting to SSE clients
+- **Cost Tracking**: Automatic token counting and USD cost calculation
+- **Aggregation**: Session-level summaries (duration, token totals, costs)
+- **Transcript Parsing**: Legacy JSONL log file monitoring (optional)
+- **Plan Tracking**: Plan orchestration event capture
+
+Configuration via environment variables:
+- `METRICS_DB_PATH`: Database location (default: `hooks/data/metrics.db`)
+- `METRICS_ARCHIVE_DIR`: Archive directory (default: `hooks/data/archives`)
+- `METRICS_AGGREGATION_INTERVAL_MS`: Aggregation frequency (default: 60000)
+
+### REST API Endpoints
+
+The viewer provides a REST API for querying metrics:
+
+**Metrics API** (`/api/metrics`)
+- `GET /api/metrics` - Query metrics with filters
+  - Query params: `session_id`, `event_type`, `event_category`, `source`, `limit`, `offset`
+  - Returns: Array of `MetricEntry` objects
+
+**Sessions API** (`/api/sessions`)
+- `GET /api/sessions` - List all sessions
+- `GET /api/sessions/:id` - Get session details and metrics
+- `GET /api/sessions/:id/aggregation` - Get session aggregation (tokens, costs, duration)
+
+**Plans API** (`/api/plans`)
+- `GET /api/plans` - List all plan events
+- `GET /api/plans/:planName` - Get events for a specific plan
+
+**SSE Streaming** (`/events`)
+- `GET /events` - Server-Sent Events stream
+  - Broadcasts real-time metrics as they're collected
+  - Automatic reconnection support
+  - Rate limited: 5 connections per IP per 60s
+
+### Viewer UI
+
+**Note**: The UI visualization is deferred to future work (Decision D010). Currently, the viewer serves the REST API and SSE endpoints only.
 
 - Auto-starts on session events (port 3456)
 - Auto-shuts down on session end
-- SSE streaming for realtime updates
-- Vue.js single-file application
+- Localhost-only binding (configurable via `HOOK_VIEWER_HOST`)
 
 ### Security Features
 
@@ -52,20 +123,22 @@ Security utilities are in `hooks/viewer/security.ts` and `hooks/viewer/rate-limi
 
 ## Implemented Hooks
 
-| Hook | File | Purpose |
-|------|------|---------|
-| UserPromptSubmit | `user-prompt-submit.ts` | Log prompts, inject context |
-| PreToolUse | `pre-tool-use.ts` | Allow/deny/modify tool inputs |
-| PostToolUse | `post-tool-use.ts` | Log results, modify MCP output |
-| PostToolUseFailure | `post-tool-use-failure.ts` | Log failures, recovery context |
-| Notification | `notification.ts` | Log system notifications |
-| SessionStart | `session-start.ts` | Log start, auto-start viewer |
-| SessionEnd | `session-end.ts` | Log end, shutdown viewer |
-| Stop | `stop.ts` | Log user interrupts |
-| SubagentStart | `subagent-start.ts` | Log subagent spawn |
-| SubagentStop | `subagent-stop.ts` | Log subagent completion |
-| PreCompact | `pre-compact.ts` | Log context compaction |
-| PermissionRequest | `permission-request.ts` | Auto-approve/deny permissions |
+All hooks collect structured metrics to the SQLite database via MetricsCollector.
+
+| Hook | File | Event Type | Event Category | Purpose |
+|------|------|------------|----------------|---------|
+| UserPromptSubmit | `user-prompt-submit.ts` | `user_prompt` | `user` | Collect user prompt submissions |
+| PreToolUse | `pre-tool-use.ts` | `tool_start` | `tool` | Collect tool execution starts |
+| PostToolUse | `post-tool-use.ts` | `tool_completed` | `tool` | Collect tool completions |
+| PostToolUseFailure | `post-tool-use-failure.ts` | `tool_failed` | `tool` | Collect tool failures |
+| Notification | `notification.ts` | `notification` | `custom` | Collect system notifications |
+| SessionStart | `session-start.ts` | `session_started` | `session` | Collect session starts, auto-start viewer |
+| SessionEnd | `session-end.ts` | `session_ended` | `session` | Collect session ends, shutdown viewer |
+| Stop | `stop.ts` | `user_stop` | `user` | Collect user interrupts |
+| SubagentStart | `subagent-start.ts` | `subagent_started` | `session` | Collect subagent spawns |
+| SubagentStop | `subagent-stop.ts` | `subagent_stopped` | `session` | Collect subagent completions |
+| PreCompact | `pre-compact.ts` | `pre_compact` | `session` | Collect context compaction events |
+| PermissionRequest | `permission-request.ts` | `permission_request` | `custom` | Collect permission requests |
 
 ## Dependencies
 

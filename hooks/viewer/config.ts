@@ -1,145 +1,99 @@
-import { join, resolve } from "path";
+/**
+ * Configuration module for the realtime log viewer
+ *
+ * Provides default configuration values and environment variable overrides
+ * for server settings, rate limiting, and authentication.
+ */
 
 /**
- * Server configuration
+ * Viewer configuration interface
  */
-export const SERVER_CONFIG = {
-  /** HTTP server port */
-  PORT: parseInt(process.env.HOOK_VIEWER_PORT || "3456", 10),
+export interface ViewerConfig {
+  /** Port number for the HTTP server */
+  port: number;
+  /** Host to bind the server to (default: localhost for security) */
+  host: string;
+  /** Rate limiting configuration for SSE connections */
+  rateLimit: {
+    /** Maximum number of connections per IP within the time window */
+    maxConnections: number;
+    /** Time window in milliseconds for rate limiting */
+    windowMs: number;
+  };
+  /** Bearer token for shutdown endpoint authentication */
+  shutdownToken: string;
+}
 
-  /** Hostname to bind to (127.0.0.1 localhost only, override with HOOK_VIEWER_HOST) */
-  HOST: process.env.HOOK_VIEWER_HOST || "127.0.0.1",
-
-  /** Full server URL */
-  get URL() {
-    return `http://${this.HOST}:${this.PORT}`;
+/**
+ * Default configuration for the viewer
+ *
+ * Security Defaults:
+ * - port: 3456 (non-privileged port)
+ * - host: localhost (binds to 127.0.0.1 only, not exposed to network)
+ * - rateLimit.maxConnections: 5 (limits SSE connections per IP)
+ * - rateLimit.windowMs: 60000 (1 minute sliding window)
+ * - shutdownToken: Random UUID or from HOOK_VIEWER_TOKEN env var
+ *
+ * Environment Variable Overrides:
+ * - HOOK_VIEWER_PORT: Override port number
+ * - HOOK_VIEWER_HOST: Override host binding (use with caution!)
+ * - HOOK_VIEWER_RATE_LIMIT_MAX: Override max connections
+ * - HOOK_VIEWER_RATE_LIMIT_WINDOW_MS: Override rate limit window
+ * - HOOK_VIEWER_TOKEN: Override shutdown token (recommended in production)
+ */
+export const DEFAULT_VIEWER_CONFIG: ViewerConfig = {
+  port: 3456,
+  host: 'localhost',
+  rateLimit: {
+    maxConnections: 5,
+    windowMs: 60000,
   },
-} as const;
+  shutdownToken: process.env.HOOK_VIEWER_TOKEN || crypto.randomUUID(),
+};
 
 /**
- * File paths configuration
+ * Get viewer configuration with environment variable overrides
+ *
+ * Supported environment variables:
+ * - HOOK_VIEWER_PORT: Override server port (default: 3456)
+ * - HOOK_VIEWER_HOST: Override server host (default: localhost)
+ * - HOOK_VIEWER_RATE_LIMIT_MAX: Override max connections per IP (default: 5)
+ * - HOOK_VIEWER_RATE_LIMIT_WINDOW_MS: Override rate limit window (default: 60000)
+ * - HOOK_VIEWER_TOKEN: Override shutdown token (default: random UUID)
+ *
+ * @returns Merged configuration with environment overrides applied
  */
-export const PATHS = {
-  /** Directory containing viewer files */
-  VIEWER_DIR: import.meta.dir,
+export function getViewerConfig(): ViewerConfig {
+  const config: ViewerConfig = {
+    port: parseIntOrDefault(process.env.HOOK_VIEWER_PORT, DEFAULT_VIEWER_CONFIG.port),
+    host: process.env.HOOK_VIEWER_HOST ?? DEFAULT_VIEWER_CONFIG.host,
+    rateLimit: {
+      maxConnections: parseIntOrDefault(
+        process.env.HOOK_VIEWER_RATE_LIMIT_MAX,
+        DEFAULT_VIEWER_CONFIG.rateLimit.maxConnections
+      ),
+      windowMs: parseIntOrDefault(
+        process.env.HOOK_VIEWER_RATE_LIMIT_WINDOW_MS,
+        DEFAULT_VIEWER_CONFIG.rateLimit.windowMs
+      ),
+    },
+    shutdownToken: process.env.HOOK_VIEWER_TOKEN ?? DEFAULT_VIEWER_CONFIG.shutdownToken,
+  };
 
-  /** Directory containing session log files */
-  LOGS_DIR: resolve(import.meta.dir, "..", "logs"),
-
-  /** Get path to a session-specific log file */
-  getSessionLogPath(session_id: string): string {
-    return join(this.LOGS_DIR, `${session_id}.txt`);
-  },
-
-  /** Path to index.html */
-  INDEX_HTML: join(import.meta.dir, "index.html"),
-
-  /** Path to styles directory */
-  STYLES_DIR: join(import.meta.dir, "styles"),
-
-  /** Path to logo.svg */
-  LOGO_SVG: join(import.meta.dir, "logo.svg"),
-
-  /** User's Claude home directory (~/.claude) */
-  CLAUDE_HOME: process.env.USERPROFILE
-    ? join(process.env.USERPROFILE, ".claude")
-    : join(process.env.HOME || "", ".claude"),
-
-  /** Path to global stats cache file */
-  get STATS_CACHE() {
-    return join(this.CLAUDE_HOME, "stats-cache.json");
-  },
-
-  /** Path to commands directory */
-  COMMANDS_DIR: resolve(import.meta.dir, "..", "..", "commands"),
-
-  /** Path to skills directory */
-  SKILLS_DIR: resolve(import.meta.dir, "..", "..", ".claude", "skills"),
-
-  /** Path to settings.json */
-  SETTINGS_FILE: resolve(import.meta.dir, "..", "..", ".claude", "settings.json"),
-
-  /** Project root directory (parent of .claude) */
-  PROJECT_ROOT: resolve(import.meta.dir, "..", ".."),
-
-  /** Directory containing active plans */
-  get DEV_ACTIVE_DIR() {
-    return join(this.PROJECT_ROOT, "dev", "active");
-  },
-
-  /** Directory containing completed plans */
-  get DEV_COMPLETE_DIR() {
-    return join(this.PROJECT_ROOT, "dev", "complete");
-  },
-
-  /** Get path to a plan's features.json */
-  getPlanFeaturesPath(planDir: string): string {
-    return join(planDir, "features.json");
-  },
-} as const;
+  return config;
+}
 
 /**
- * Environment variable for current session ID
+ * Parse an environment variable as integer with fallback
+ *
+ * @param value - Environment variable value (may be undefined)
+ * @param defaultValue - Default value if parsing fails or value is undefined
+ * @returns Parsed integer or default value
  */
-export const CURRENT_SESSION_ENV = "CLAUDE_HOOKS_VIEWER_SESSION";
-
-/**
- * SSE (Server-Sent Events) configuration
- */
-export const SSE_CONFIG = {
-  /** Heartbeat interval in milliseconds */
-  HEARTBEAT_INTERVAL: 30_000, // 30 seconds
-
-  /** Reconnect delay for clients (sent in retry field) */
-  RECONNECT_DELAY: 3_000, // 3 seconds
-} as const;
-
-/**
- * File watcher configuration
- */
-export const WATCHER_CONFIG = {
-  /** Poll interval for file changes in milliseconds */
-  POLL_INTERVAL: 500, // 500ms
-} as const;
-
-/**
- * Dashboard-specific configuration
- */
-export const DASHBOARD_CONFIG = {
-  /** Session considered inactive after this many ms without heartbeat */
-  HEARTBEAT_TIMEOUT_MS: 60_000, // 60 seconds
-
-  /** Minimum interval between heartbeat writes */
-  HEARTBEAT_INTERVAL_MS: 30_000, // 30 seconds
-
-  /** Dashboard data refresh interval for UI polling */
-  REFRESH_INTERVAL_MS: 5_000, // 5 seconds
-} as const;
-
-/**
- * Timing constants
- */
-export const TIMING = {
-  /** Delay before shutdown to allow response to complete */
-  SHUTDOWN_DELAY_MS: 100,
-
-  /** Dashboard polling interval in milliseconds */
-  DASHBOARD_POLL_INTERVAL_MS: 5_000,
-
-  /** File watch polling interval in milliseconds */
-  FILE_WATCH_INTERVAL_MS: 500,
-
-  /** SSE heartbeat interval in milliseconds */
-  SSE_HEARTBEAT_INTERVAL_MS: 30_000,
-} as const;
-
-/**
- * Plan tracker configuration
- */
-export const PLAN_CONFIG = {
-  /** Poll interval for plan file changes in milliseconds */
-  POLL_INTERVAL_MS: 1_000, // 1 second for responsive updates during orchestration
-
-  /** Maximum number of completed plans to show */
-  MAX_COMPLETED_PLANS: 10,
-} as const;
+function parseIntOrDefault(value: string | undefined, defaultValue: number): number {
+  if (value === undefined) {
+    return defaultValue;
+  }
+  const parsed = parseInt(value, 10);
+  return isNaN(parsed) ? defaultValue : parsed;
+}

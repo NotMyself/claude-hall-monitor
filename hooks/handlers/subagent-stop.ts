@@ -1,89 +1,59 @@
 /**
- * @fileoverview SubagentStop Hook Handler
+ * SubagentStop hook handler
  *
- * Triggered when a subagent (Task tool) completes execution. This hook receives
- * information about the completed agent including its transcript path.
+ * Implements: F015 - Subagent Lifecycle Handlers
  *
- * ## Capabilities
- *
- * - **Completion Logging**: Track when agents complete
- * - **Result Analysis**: Access agent transcript for analysis
- * - **Performance Tracking**: Measure agent execution time
- *
- * ## Use Cases
- *
- * 1. **Completion Logging**: Track agent completion for analytics
- * 2. **Performance Analysis**: Measure agent execution time
- * 3. **Transcript Analysis**: Analyze agent transcripts for patterns
- * 4. **Resource Cleanup**: Release resources after agent completion
- * 5. **Result Aggregation**: Collect results from multiple agents
- *
- * ## Fields
- *
- * - `agent_id`: Unique identifier for the completed agent
- * - `agent_transcript_path`: Path to the agent's transcript file
- * - `stop_hook_active`: Whether a stop hook is currently active
- *
- * @example Input JSON
- * ```json
- * {
- *   "hook_event_name": "SubagentStop",
- *   "session_id": "session-abc123",
- *   "transcript_path": "C:\\Users\\user\\.claude\\sessions\\session-abc123.json",
- *   "cwd": "C:\\Users\\user\\project",
- *   "stop_hook_active": false,
- *   "agent_id": "agent-xyz789",
- *   "agent_transcript_path": "C:\\Users\\user\\.claude\\sessions\\agent-xyz789.json",
- *   "permission_mode": "default"
- * }
- * ```
- *
- * @example Output JSON
- * ```json
- * {
- *   "continue": true
- * }
- * ```
- *
- * @module hooks/subagent-stop
+ * This handler:
+ * - Collects subagent_stopped metric when a subagent completes
+ * - Captures session_id, subagent_id, and working directory
+ * - Returns empty SubagentStopHookResult (no modifications)
  */
 
-import {
-  type SubagentStopHookInput,
-  type SyncHookJSONOutput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import type { SubagentStopHookInput, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import { MetricsCollector } from '../metrics/collector';
+import { Database } from '../metrics/database';
+import { EventEmitter } from '../utils/event-emitter';
+import { getConfig } from '../metrics/config';
+import type { MetricEntry } from '../metrics/types';
 
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<SubagentStopHookInput>();
+// Create shared instances
+const config = getConfig();
+const emitter = new EventEmitter();
+const database = new Database(config.databasePath);
+const collector = new MetricsCollector({
+  database,
+  emitter,
+  flushIntervalMs: 5000,
+  maxBufferSize: 100,
+});
 
-  // Log the subagent stop with structured data
-  await log("SubagentStop", input.session_id, {
-    cwd: input.cwd,
-    agent_id: input.agent_id,
-    agent_transcript_path: input.agent_transcript_path,
-    stop_hook_active: input.stop_hook_active,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    stopped_at: new Date().toISOString(),
-  });
+const hook = async (params: SubagentStopHookInput) => {
+  const { session_id, cwd, agent_id, agent_transcript_path } = params;
 
-  // Build the output response
-  // SubagentStop doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
+  // Create metric for subagent stop
+  const metric: MetricEntry = {
+    id: `subagent-stop-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    session_id,
+    project_path: cwd,
+    source: 'hook',
+    event_type: 'subagent_stopped',
+    event_category: 'session',
+    data: {
+      agent_id,
+      agent_transcript_path,
+      cwd,
+    },
+    tags: ['subagent', 'stop', agent_id],
   };
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
+  collector.collect(metric);
 
-try {
-  await main();
-} catch (error) {
-  console.error("Handler error:", error);
-  // Always output valid JSON
-  writeOutput({ continue: true });
-  process.exit(1);
-}
+  // Return valid HookJSONOutput
+  const result: HookJSONOutput = {};
+
+  // Output valid JSON
+  console.log(JSON.stringify(result));
+};
+
+hook(JSON.parse(process.argv[2] || '{}'));

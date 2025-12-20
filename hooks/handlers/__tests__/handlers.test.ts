@@ -1,451 +1,190 @@
 /**
- * Unit tests for hook handlers
+ * Handler tests
  *
- * Tests critical code paths for all hook handlers:
- * - Priority handlers (session-start, session-end, pre-tool-use, post-tool-use, permission-request)
- * - Additional handlers (user-prompt-submit, notification, stop, subagent-start, subagent-stop, pre-compact, post-tool-use-failure)
+ * Implements: F027 - Hook handler tests
  *
- * Testing strategy:
- * - Mock logger module functions
- * - Test handler logic by verifying logger calls
- * - Focus on critical code paths rather than full execution
+ * Note: Handlers are designed to run as standalone scripts that:
+ * 1. Initialize MetricsCollector with Database and EventEmitter
+ * 2. Collect metrics for hook events
+ * 3. Output valid JSON to stdout
+ *
+ * The integration tests in integration.test.ts verify the core
+ * data pipeline (Database → MetricsCollector → EventEmitter).
+ *
+ * These tests verify handler-specific logic patterns and structure.
  */
 
-import { describe, it, expect } from 'vitest';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { describe, test, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// Get the directory of this test file for relative path resolution
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const HANDLERS_DIR = join(__dirname, '..');
 
-describe('Hook Handler Tests', () => {
-  // These tests verify the handler test infrastructure is set up correctly
-  // Full handler integration tests would require mocking Bun.stdin and process execution
+describe('Hook Handlers', () => {
+  const handlers = [
+    'session-start.ts',
+    'session-end.ts',
+    'user-prompt-submit.ts',
+    'stop.ts',
+    'pre-tool-use.ts',
+    'post-tool-use.ts',
+    'post-tool-use-failure.ts',
+    'notification.ts',
+    'pre-compact.ts',
+    'subagent-start.ts',
+    'subagent-stop.ts',
+    'permission-request.ts',
+  ];
 
-  describe('Test Infrastructure', () => {
-    it('has setup utilities available', async () => {
-      const { createMockInput } = await import('./setup');
+  describe('File structure', () => {
+    handlers.forEach((handler) => {
+      test(`${handler} exists and has correct imports`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
 
-      expect(createMockInput.sessionStart).toBeDefined();
-      expect(createMockInput.sessionEnd).toBeDefined();
-      expect(createMockInput.preToolUse).toBeDefined();
-      expect(createMockInput.postToolUse).toBeDefined();
-      expect(createMockInput.permissionRequest).toBeDefined();
-      expect(createMockInput.userPromptSubmit).toBeDefined();
-      expect(createMockInput.notification).toBeDefined();
+        // Verify essential imports
+        expect(content).toContain("from '@anthropic-ai/claude-agent-sdk'");
+        expect(content).toContain("from '../metrics/collector'");
+        expect(content).toContain("from '../metrics/database'");
+        expect(content).toContain("from '../utils/event-emitter'");
+        expect(content).toContain("from '../metrics/config'");
+      });
     });
+  });
 
-    it('can create mock inputs for all handler types', async () => {
-      const { createMockInput } = await import('./setup');
+  describe('Handler patterns', () => {
+    handlers.forEach((handler) => {
+      test(`${handler} initializes metrics infrastructure`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
 
-      const sessionStart = createMockInput.sessionStart();
-      expect(sessionStart.hook_event_name).toBe('SessionStart');
-      expect(sessionStart.session_id).toBeDefined();
-
-      const sessionEnd = createMockInput.sessionEnd();
-      expect(sessionEnd.hook_event_name).toBe('SessionEnd');
-
-      const preToolUse = createMockInput.preToolUse();
-      expect(preToolUse.hook_event_name).toBe('PreToolUse');
-      expect(preToolUse.tool_name).toBeDefined();
-
-      const postToolUse = createMockInput.postToolUse();
-      expect(postToolUse.hook_event_name).toBe('PostToolUse');
-      expect(postToolUse.tool_response).toBeDefined();
-
-      const permissionRequest = createMockInput.permissionRequest();
-      expect(permissionRequest.hook_event_name).toBe('PermissionRequest');
-    });
-
-    it('can override mock input properties', async () => {
-      const { createMockInput } = await import('./setup');
-
-      const customSession = createMockInput.sessionStart({
-        source: 'resume',
-        session_id: 'custom-id'
+        // Verify initialization pattern
+        expect(content).toContain('getConfig()');
+        expect(content).toContain('new EventEmitter()');
+        expect(content).toContain('new Database(');
+        expect(content).toContain('new MetricsCollector(');
       });
 
-      expect(customSession.source).toBe('resume');
-      expect(customSession.session_id).toBe('custom-id');
-    });
-  });
+      test(`${handler} collects metrics`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
 
-  describe('Logger Module Integration', () => {
-    it('logger module exports required functions', async () => {
-      const loggerModule = await import('../../utils/logger');
-
-      expect(loggerModule.log).toBeDefined();
-      expect(loggerModule.readInput).toBeDefined();
-      expect(loggerModule.writeOutput).toBeDefined();
-      expect(loggerModule.maybeWriteHeartbeat).toBeDefined();
-    });
-
-    it('getLogFilePath constructs correct paths', async () => {
-      const loggerModule = await import('../../utils/logger');
-      const path = loggerModule.getLogFilePath('test-session');
-      expect(path).toContain('logs');
-      expect(path).toContain('test-session.txt');
-    });
-  });
-
-  describe('Handler File Existence', () => {
-    it('all priority handler files exist', async () => {
-      const handlers = [
-        'session-start',
-        'session-end',
-        'pre-tool-use',
-        'post-tool-use',
-        'permission-request',
-      ];
-
-      for (const handler of handlers) {
-        const { stat } = await import('node:fs/promises');
-        const handlerPath = join(HANDLERS_DIR, `${handler}.ts`);
-        const exists = await stat(handlerPath).then(() => true).catch(() => false);
-        expect(exists, `Handler ${handler}.ts should exist at ${handlerPath}`).toBe(true);
-      }
-    });
-
-    it('all additional handler files exist', async () => {
-      const handlers = [
-        'user-prompt-submit',
-        'notification',
-        'stop',
-        'subagent-start',
-        'subagent-stop',
-        'pre-compact',
-        'post-tool-use-failure',
-      ];
-
-      for (const handler of handlers) {
-        const { stat } = await import('node:fs/promises');
-        const handlerPath = join(HANDLERS_DIR, `${handler}.ts`);
-        const exists = await stat(handlerPath).then(() => true).catch(() => false);
-        expect(exists, `Handler ${handler}.ts should exist at ${handlerPath}`).toBe(true);
-      }
-    });
-  });
-
-  describe('PostToolUse Helper Functions', () => {
-    it('truncateForLog function truncates long strings', async () => {
-      // We can't directly import the function since it's not exported,
-      // but we can verify the handler file contains it
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'post-tool-use.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('function truncateForLog');
-      expect(content).toContain('[truncated]');
-    });
-  });
-
-  describe('SessionStart Viewer Logic', () => {
-    it('session-start contains viewer startup logic', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'session-start.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('isViewerRunning');
-      expect(content).toContain('startViewerServer');
-      expect(content).toContain('VIEWER_PORT');
-    });
-  });
-
-  describe('SessionEnd Cleanup Logic', () => {
-    it('session-end contains viewer shutdown logic', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'session-end.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('shutdownViewer');
-      expect(content).toContain('/shutdown');
-      expect(content).toContain('shouldShutdown');
-    });
-
-    it('session-end does not shut down on clear/compact', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'session-end.ts'),
-        'utf-8'
-      );
-
-      // Verify the logic that prevents shutdown on clear/compact
-      expect(content).toContain('clear');
-      expect(content).toContain('compact');
-      expect(content).toMatch(/reason !== ['"]clear['"]/);
-      expect(content).toMatch(/reason !== ['"]compact['"]/);
-    });
-  });
-
-  describe('PreToolUse Permission Logic', () => {
-    it('pre-tool-use contains permission decision logic', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'pre-tool-use.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('permissionDecision');
-      expect(content).toContain('allow');
-      expect(content).toContain('PreToolUse');
-    });
-
-    it('pre-tool-use calls maybeWriteHeartbeat', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'pre-tool-use.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('maybeWriteHeartbeat');
-    });
-  });
-
-  describe('PermissionRequest Handler Logic', () => {
-    it('permission-request logs suggestion count', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'permission-request.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('has_suggestions');
-      expect(content).toContain('suggestion_count');
-      expect(content).toContain('permission_suggestions');
-    });
-
-    it('permission-request has decision examples in comments', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'permission-request.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('behavior');
-      expect(content).toContain('allow');
-      expect(content).toContain('deny');
-    });
-  });
-
-  describe('Handler Output Structures', () => {
-    it('handlers use SyncHookJSONOutput type', async () => {
-      const { readFile } = await import('node:fs/promises');
-
-      const handlers = [
-        'session-start',
-        'session-end',
-        'pre-tool-use',
-        'post-tool-use',
-        'permission-request',
-      ];
-
-      for (const handler of handlers) {
-        const content = await readFile(
-          join(HANDLERS_DIR, `${handler}.ts`),
-          'utf-8'
-        );
-        expect(content).toContain('SyncHookJSONOutput');
-        expect(content).toContain('continue: true');
-      }
-    });
-
-    it('handlers use correct hook input types', async () => {
-      const { readFile } = await import('node:fs/promises');
-
-      const handlerTypes = [
-        { handler: 'session-start', type: 'SessionStartHookInput' },
-        { handler: 'session-end', type: 'SessionEndHookInput' },
-        { handler: 'pre-tool-use', type: 'PreToolUseHookInput' },
-        { handler: 'post-tool-use', type: 'PostToolUseHookInput' },
-        { handler: 'permission-request', type: 'PermissionRequestHookInput' },
-      ];
-
-      for (const { handler, type } of handlerTypes) {
-        const content = await readFile(
-          join(HANDLERS_DIR, `${handler}.ts`),
-          'utf-8'
-        );
-        expect(content).toContain(type);
-      }
-    });
-  });
-
-  describe('Handler Logging Patterns', () => {
-    it('all handlers call log function', async () => {
-      const { readFile, readdir } = await import('node:fs/promises');
-
-      const files = await readdir(HANDLERS_DIR);
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
-
-      for (const file of handlerFiles) {
-        const content = await readFile(
-          join(HANDLERS_DIR, file),
-          'utf-8'
-        );
-        expect(content, `${file} should call log()`).toContain('await log(');
-      }
-    });
-
-    it('all handlers call readInput', async () => {
-      const { readFile, readdir } = await import('node:fs/promises');
-
-      const files = await readdir(HANDLERS_DIR);
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
-
-      for (const file of handlerFiles) {
-        const content = await readFile(
-          join(HANDLERS_DIR, file),
-          'utf-8'
-        );
-        expect(content, `${file} should call readInput()`).toContain('readInput');
-      }
-    });
-
-    it('all handlers call writeOutput', async () => {
-      const { readFile, readdir } = await import('node:fs/promises');
-
-      const files = await readdir(HANDLERS_DIR);
-      const handlerFiles = files.filter(f => f.endsWith('.ts') && !f.includes('test') && !f.includes('__'));
-
-      for (const file of handlerFiles) {
-        const content = await readFile(
-          join(HANDLERS_DIR, file),
-          'utf-8'
-        );
-        expect(content, `${file} should call writeOutput()`).toContain('writeOutput');
-      }
-    });
-  });
-
-  describe('Handler Error Handling', () => {
-    it('session-start handles fetch errors gracefully', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'session-start.ts'),
-        'utf-8'
-      );
-
-      // Check for try-catch or error handling
-      expect(content).toContain('catch');
-    });
-
-    it('session-end handles shutdown errors gracefully', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'session-end.ts'),
-        'utf-8'
-      );
-
-      // Check for try-catch or error handling
-      expect(content).toContain('catch');
-    });
-  });
-
-  describe('Handler Documentation', () => {
-    it('priority handlers have JSDoc comments', async () => {
-      const { readFile } = await import('node:fs/promises');
-
-      const handlers = [
-        'session-start',
-        'session-end',
-        'pre-tool-use',
-        'post-tool-use',
-        'permission-request',
-      ];
-
-      for (const handler of handlers) {
-        const content = await readFile(
-          join(HANDLERS_DIR, `${handler}.ts`),
-          'utf-8'
-        );
-        expect(content).toContain('@fileoverview');
-        expect(content).toContain('@example');
-      }
-    });
-
-    it('handlers document their capabilities', async () => {
-      const { readFile } = await import('node:fs/promises');
-
-      const handlers = [
-        'session-start',
-        'session-end',
-        'pre-tool-use',
-        'post-tool-use',
-        'permission-request',
-      ];
-
-      for (const handler of handlers) {
-        const content = await readFile(
-          join(HANDLERS_DIR, `${handler}.ts`),
-          'utf-8'
-        );
-        expect(content).toContain('## Capabilities');
-        expect(content).toContain('## Use Cases');
-      }
-    });
-  });
-
-  describe('Heartbeat Integration', () => {
-    it('pre-tool-use calls heartbeat with tool increment', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'pre-tool-use.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('maybeWriteHeartbeat');
-      expect(content).toMatch(/maybeWriteHeartbeat\([^)]*true/);
-    });
-
-    it('user-prompt-submit calls heartbeat with message increment', async () => {
-      const { readFile } = await import('node:fs/promises');
-      const content = await readFile(
-        join(HANDLERS_DIR, 'user-prompt-submit.ts'),
-        'utf-8'
-      );
-
-      expect(content).toContain('maybeWriteHeartbeat');
-    });
-  });
-
-  describe('Mock Input Data Generators', () => {
-    it('generates valid session start inputs', async () => {
-      const { createMockInput } = await import('./setup');
-      const input = createMockInput.sessionStart();
-
-      expect(input.hook_event_name).toBe('SessionStart');
-      expect(input.session_id).toBeTruthy();
-      expect(input.cwd).toBeTruthy();
-      expect(input.source).toBeTruthy();
-    });
-
-    it('generates valid tool use inputs', async () => {
-      const { createMockInput } = await import('./setup');
-      const input = createMockInput.preToolUse();
-
-      expect(input.hook_event_name).toBe('PreToolUse');
-      expect(input.tool_name).toBeTruthy();
-      expect(input.tool_input).toBeTruthy();
-      expect(input.tool_use_id).toBeTruthy();
-    });
-
-    it('supports custom overrides', async () => {
-      const { createMockInput } = await import('./setup');
-      const input = createMockInput.preToolUse({
-        tool_name: 'CustomTool',
-        session_id: 'custom-123',
+        // Verify metric collection
+        expect(content).toContain('collector.collect(');
+        expect(content).toContain('event_type:');
+        expect(content).toContain('event_category:');
+        expect(content).toContain('session_id');
       });
 
-      expect(input.tool_name).toBe('CustomTool');
-      expect(input.session_id).toBe('custom-123');
+      test(`${handler} outputs valid JSON`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
+
+        // Verify JSON output
+        expect(content).toContain('console.log(JSON.stringify(');
+      });
+    });
+  });
+
+  describe('Event categories', () => {
+    const expectedCategories = {
+      'session-start.ts': 'session',
+      'session-end.ts': 'session',
+      'user-prompt-submit.ts': 'user',
+      'stop.ts': 'user',
+      'pre-tool-use.ts': 'tool',
+      'post-tool-use.ts': 'tool',
+      'post-tool-use-failure.ts': 'tool',
+      'notification.ts': 'custom',
+      'pre-compact.ts': 'session',
+      'subagent-start.ts': 'session',
+      'subagent-stop.ts': 'session',
+      'permission-request.ts': 'custom',
+    };
+
+    Object.entries(expectedCategories).forEach(([handler, category]) => {
+      test(`${handler} uses '${category}' event category`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
+
+        expect(content).toContain(`event_category: '${category}'`);
+      });
+    });
+  });
+
+  describe('Event types', () => {
+    const expectedEventTypes = {
+      'session-start.ts': 'session_started',
+      'session-end.ts': 'session_ended',
+      'user-prompt-submit.ts': 'user_prompt',
+      'stop.ts': 'user_stop',
+      'pre-tool-use.ts': 'tool_start',
+      'post-tool-use.ts': 'tool_completed',
+      'post-tool-use-failure.ts': 'tool_failed',
+      'notification.ts': 'notification',
+      'pre-compact.ts': 'pre_compact',
+      'subagent-start.ts': 'subagent_started',
+      'subagent-stop.ts': 'subagent_stopped',
+      'permission-request.ts': 'permission_request',
+    };
+
+    Object.entries(expectedEventTypes).forEach(([handler, eventType]) => {
+      test(`${handler} uses '${eventType}' event type`, () => {
+        const handlerPath = join(HANDLERS_DIR, handler);
+        const content = readFileSync(handlerPath, 'utf-8');
+
+        expect(content).toContain(`event_type: '${eventType}'`);
+      });
+    });
+  });
+
+  describe('Data collection', () => {
+    test('session-start.ts collects session metadata', () => {
+      const content = readFileSync(join(HANDLERS_DIR, 'session-start.ts'), 'utf-8');
+      expect(content).toContain('data: {');
+      expect(content).toContain('cwd');
+    });
+
+    test('tool handlers collect tool metadata', () => {
+      ['pre-tool-use.ts', 'post-tool-use.ts', 'post-tool-use-failure.ts'].forEach((handler) => {
+        const content = readFileSync(join(HANDLERS_DIR, handler), 'utf-8');
+        expect(content).toContain('tool_name');
+      });
+    });
+
+    test('post-tool-use.ts collects success status', () => {
+      const content = readFileSync(join(HANDLERS_DIR, 'post-tool-use.ts'), 'utf-8');
+      expect(content).toContain('tool_success');
+    });
+
+    test('user-prompt-submit.ts collects prompt data', () => {
+      const content = readFileSync(join(HANDLERS_DIR, 'user-prompt-submit.ts'), 'utf-8');
+      expect(content).toContain('prompt');
+    });
+  });
+
+  describe('Collector configuration', () => {
+    const handlersWithConfig = handlers.filter((h) => h !== 'session-end.ts');
+
+    handlersWithConfig.forEach((handler) => {
+      test(`${handler} configures collector with proper intervals`, () => {
+        const content = readFileSync(join(HANDLERS_DIR, handler), 'utf-8');
+
+        // Verify collector configuration
+        expect(content).toContain('flushIntervalMs:');
+        expect(content).toContain('maxBufferSize:');
+      });
+    });
+
+    test('session-end.ts uses default collector config', () => {
+      const content = readFileSync(join(HANDLERS_DIR, 'session-end.ts'), 'utf-8');
+
+      // session-end uses default config (no explicit flush intervals)
+      expect(content).toContain('new MetricsCollector({');
+      expect(content).not.toContain('flushIntervalMs:');
     });
   });
 });

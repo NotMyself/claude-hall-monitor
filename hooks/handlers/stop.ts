@@ -1,83 +1,57 @@
 /**
- * @fileoverview Stop Hook Handler
+ * Stop hook handler
  *
- * Triggered when Claude Code execution is stopped or interrupted by the user.
- * This typically occurs when the user presses Escape or Ctrl+C during execution.
+ * Implements: F013 - User Interaction Handlers
  *
- * ## Capabilities
- *
- * - **Stop Logging**: Track when and why execution was stopped
- * - **State Preservation**: Save state before stopping
- * - **Graceful Shutdown**: Handle cleanup on stop
- *
- * ## Use Cases
- *
- * 1. **Interrupt Logging**: Track user-initiated stops
- * 2. **State Preservation**: Save work-in-progress before stopping
- * 3. **Analytics**: Measure how often users interrupt execution
- * 4. **Graceful Cleanup**: Clean up resources on stop
- * 5. **Debugging**: Understand why users stop execution
- *
- * ## Fields
- *
- * - `stop_hook_active`: Indicates if this hook is currently processing a stop
- *
- * @example Input JSON
- * ```json
- * {
- *   "hook_event_name": "Stop",
- *   "session_id": "session-abc123",
- *   "transcript_path": "C:\\Users\\user\\.claude\\sessions\\session-abc123.json",
- *   "cwd": "C:\\Users\\user\\project",
- *   "stop_hook_active": true,
- *   "permission_mode": "default"
- * }
- * ```
- *
- * @example Output JSON
- * ```json
- * {
- *   "continue": true
- * }
- * ```
- *
- * @module hooks/stop
+ * This handler:
+ * - Collects user_stop metric when user interrupts execution
+ * - Captures session_id and working directory
+ * - Returns empty StopHookResult (no modifications)
  */
 
-import {
-  type StopHookInput,
-  type SyncHookJSONOutput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import type { StopHookInput, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import { MetricsCollector } from '../metrics/collector';
+import { Database } from '../metrics/database';
+import { EventEmitter } from '../utils/event-emitter';
+import { getConfig } from '../metrics/config';
+import type { MetricEntry } from '../metrics/types';
 
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<StopHookInput>();
+// Create shared instances
+const config = getConfig();
+const emitter = new EventEmitter();
+const database = new Database(config.databasePath);
+const collector = new MetricsCollector({
+  database,
+  emitter,
+  flushIntervalMs: 5000,
+  maxBufferSize: 100,
+});
 
-  // Log the stop event with structured data
-  await log("Stop", input.session_id, {
-    cwd: input.cwd,
-    stop_hook_active: input.stop_hook_active,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    stopped_at: new Date().toISOString(),
-  });
+const hook = async (params: StopHookInput) => {
+  const { session_id, cwd } = params;
 
-  // Build the output response
-  // Stop doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
+  // Create metric for user stop/interrupt
+  const metric: MetricEntry = {
+    id: `user-stop-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    session_id,
+    project_path: cwd,
+    source: 'hook',
+    event_type: 'user_stop',
+    event_category: 'user',
+    data: {
+      cwd,
+    },
+    tags: ['user', 'stop', 'interrupt'],
   };
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
+  collector.collect(metric);
 
-try {
-  await main();
-} catch (error) {
-  console.error("Handler error:", error);
-  // Always output valid JSON
-  writeOutput({ continue: true });
-  process.exit(1);
-}
+  // Return valid HookJSONOutput
+  const result: HookJSONOutput = {};
+
+  // Output valid JSON
+  console.log(JSON.stringify(result));
+};
+
+hook(JSON.parse(process.argv[2] || '{}'));

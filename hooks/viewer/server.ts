@@ -1,437 +1,461 @@
-import { SERVER_CONFIG, PATHS, SSE_CONFIG, CURRENT_SESSION_ENV, TIMING } from "./config";
-import { LogFileWatcher } from "./watcher";
-import { PlanWatcher } from "./plan-watcher";
-import type { LogEntry, SSEMessage, SessionListResponse, PlanListResponse, PlanUpdateMessage } from "./types";
-import { DashboardService } from "./dashboard";
-import { SessionSummaryService } from "./session-summary";
-import { validatePlanName, sanitizePathComponent, validatePathWithinBase, validateSessionId, generateAuthToken, verifyAuthToken, getLocalhostOrigin } from "./security";
-import { RateLimiter, DEFAULT_RATE_LIMIT } from "./rate-limiter";
+/**
+ * HTTP server for the realtime log viewer
+ *
+ * Implements F019: HTTP server base with routes for:
+ * - GET / - HTML page with Vue.js app
+ * - GET /styles/theme.css - CSS theme file
+ * - GET /api/entries - JSON array of log entries
+ * - GET /events - SSE stream for realtime updates
+ * - POST /shutdown - Authenticated shutdown endpoint
+ *
+ * Security features:
+ * - CSP headers on HTML responses
+ * - CORS restricted to localhost origin
+ * - Rate limiting on SSE connections
+ * - Bearer token auth on shutdown endpoint
+ * - Binds to localhost only by default
+ */
 
-// Generate auth token on startup (allow env var override for testing)
-const AUTH_TOKEN = process.env.CLAUDE_HOOKS_VIEWER_TOKEN || generateAuthToken();
+import { getViewerConfig, type ViewerConfig } from './config';
+import { RateLimiter, verifyBearerToken } from './security';
+import { watch } from 'fs';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 /**
- * MIME types for static files
+ * Viewer server class using Bun.serve
+ *
+ * Manages HTTP server lifecycle, SSE connections, and file watching
+ * for realtime log updates.
  */
-const MIME_TYPES: Record<string, string> = {
-  ".html": "text/html",
-  ".css": "text/css",
-  ".js": "application/javascript",
-  ".json": "application/json",
-  ".svg": "image/svg+xml",
-};
+export class ViewerServer {
+  private server?: ReturnType<typeof Bun.serve>;
+  private config: ViewerConfig;
+  private rateLimiter: RateLimiter;
+  private watcher?: ReturnType<typeof watch>;
+  private sseClients: Set<WritableStreamDefaultWriter<Uint8Array>> = new Set();
+  private logFilePath: string;
 
-/**
- * Content Security Policy for HTML responses.
- * Restricts script sources to prevent XSS while allowing necessary external resources.
- */
-const CSP_HEADER = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",  // Vue.js runtime compiler needs eval
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",  // Google Fonts CSS
-  "font-src 'self' https://fonts.gstatic.com",  // Google Fonts files
-  "img-src 'self' data:",
-  "connect-src 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
+  /**
+   * Create a new viewer server
+   *
+   * @param config - Optional configuration overrides
+   */
+  constructor(config?: Partial<ViewerConfig>) {
+    const defaultConfig = getViewerConfig();
+    this.config = { ...defaultConfig, ...config };
+    this.rateLimiter = new RateLimiter(
+      this.config.rateLimit.maxConnections,
+      this.config.rateLimit.windowMs
+    );
 
-/**
- * File watcher instance
- */
-const watcher = new LogFileWatcher();
-watcher.start();
-
-/**
- * Dashboard service instance
- */
-const dashboardService = new DashboardService();
-
-/**
- * Plan watcher instance
- */
-const planWatcher = new PlanWatcher();
-planWatcher.start();
-
-/**
- * Session summary service instance
- */
-const sessionSummaryService = new SessionSummaryService();
-
-/**
- * Rate limiter for SSE connections
- */
-const sseRateLimiter = new RateLimiter(DEFAULT_RATE_LIMIT);
-
-const currentSessionId = process.env[CURRENT_SESSION_ENV] || null;
-
-// Initialize watcher with current session if available
-if (currentSessionId) {
-  watcher.setSession(currentSessionId);
-}
-
-/**
- * Get MIME type from file extension
- */
-function getMimeType(path: string): string {
-  const ext = path.substring(path.lastIndexOf("."));
-  return MIME_TYPES[ext] || "application/octet-stream";
-}
-
-/**
- * Serve a static file
- */
-async function serveFile(path: string): Promise<Response> {
-  const file = Bun.file(path);
-
-  if (!(await file.exists())) {
-    return new Response("Not Found", { status: 404 });
+    // Determine log file path relative to hooks directory
+    const hooksDir = join(import.meta.dir, '..');
+    this.logFilePath = join(hooksDir, 'hooks-log.txt');
   }
 
-  const mimeType = getMimeType(path);
-  const headers: Record<string, string> = {
-    "Content-Type": mimeType,
-  };
+  /**
+   * Start the HTTP server
+   *
+   * Binds to the configured host and port and begins accepting connections.
+   */
+  async start(): Promise<void> {
+    this.server = Bun.serve({
+      port: this.config.port,
+      hostname: this.config.host,
+      fetch: this.handleRequest.bind(this),
+    });
 
-  // Add CSP header for HTML files
-  if (mimeType === "text/html") {
-    headers["Content-Security-Policy"] = CSP_HEADER;
-    headers["X-Content-Type-Options"] = "nosniff";
-    headers["X-Frame-Options"] = "DENY";
+    console.log(`Viewer running at http://${this.config.host}:${this.config.port}`);
+
+    // Start watching log file for changes
+    this.startFileWatcher();
   }
 
-  return new Response(file, { headers });
-}
+  /**
+   * Handle incoming HTTP requests
+   *
+   * Routes requests to appropriate handlers based on URL path and method.
+   *
+   * @param req - The HTTP request
+   * @returns HTTP response
+   */
+  private async handleRequest(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+    const path = url.pathname;
 
-/**
- * Format data as SSE message
- */
-function formatSSE(event: string, data: unknown): string {
-  return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
-}
-
-/**
- * Handle sessions list request
- */
-async function handleSessionsList(): Promise<Response> {
-  const sessions = await LogFileWatcher.listSessions();
-  const response: SessionListResponse = {
-    sessions,
-    current_session: currentSessionId,
-  };
-  return Response.json(response);
-}
-
-/**
- * Handle SSE connection
- */
-function handleSSE(request: Request): Response {
-  const encoder = new TextEncoder();
-  let heartbeatInterval: Timer | null = null;
-  let unsubscribe: (() => void) | null = null;
-
-  const stream = new ReadableStream({
-    start(controller) {
-      // Send initial entries
-      const entries = watcher.getAllEntries();
-      controller.enqueue(encoder.encode(formatSSE("entries", entries)));
-
-      // Subscribe to new entries
-      unsubscribe = watcher.subscribe((entry: LogEntry) => {
-        try {
-          controller.enqueue(encoder.encode(formatSSE("entry", entry)));
-        } catch {
-          // Expected: client disconnected during SSE write
-        }
-      });
-
-      // Start heartbeat
-      heartbeatInterval = setInterval(() => {
-        try {
-          const heartbeat: SSEMessage = {
-            type: "heartbeat",
-            timestamp: new Date().toISOString(),
-          };
-          controller.enqueue(encoder.encode(formatSSE("heartbeat", heartbeat)));
-        } catch {
-          // Expected: client disconnected during heartbeat
-        }
-      }, SSE_CONFIG.HEARTBEAT_INTERVAL);
-    },
-
-    cancel() {
-      // Cleanup on disconnect
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      if (unsubscribe) unsubscribe();
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": getLocalhostOrigin(SERVER_CONFIG.PORT),
-    },
-  });
-}
-
-/**
- * Handle SSE connection for plan updates
- */
-function handlePlanSSE(): Response {
-  const encoder = new TextEncoder();
-  let heartbeatInterval: Timer | null = null;
-  let unsubscribe: (() => void) | null = null;
-
-  const stream = new ReadableStream({
-    start(controller) {
-      // Send initial plans
-      const plans = planWatcher.getAllPlans();
-      controller.enqueue(encoder.encode(formatSSE("plans", plans)));
-
-      // Subscribe to updates
-      unsubscribe = planWatcher.subscribe((plan) => {
-        try {
-          const message: PlanUpdateMessage = {
-            type: "plan_updated",
-            plan,
-            timestamp: new Date().toISOString(),
-          };
-          controller.enqueue(encoder.encode(formatSSE("plan_update", message)));
-        } catch {
-          // Expected: client disconnected during plan update
-        }
-      });
-
-      // Start heartbeat
-      heartbeatInterval = setInterval(() => {
-        try {
-          controller.enqueue(
-            encoder.encode(formatSSE("heartbeat", { timestamp: new Date().toISOString() }))
-          );
-        } catch {
-          // Expected: client disconnected during plan heartbeat
-        }
-      }, SSE_CONFIG.HEARTBEAT_INTERVAL);
-    },
-
-    cancel() {
-      if (heartbeatInterval) clearInterval(heartbeatInterval);
-      if (unsubscribe) unsubscribe();
-    },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": getLocalhostOrigin(SERVER_CONFIG.PORT),
-    },
-  });
-}
-
-/**
- * Main request handler
- */
-async function handleRequest(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const path = url.pathname;
-
-  // Route: GET / -> index.html
-  if (path === "/" && request.method === "GET") {
-    return serveFile(PATHS.INDEX_HTML);
-  }
-
-  // Route: GET /styles/* -> static CSS files
-  if (path.startsWith("/styles/") && request.method === "GET") {
-    const requestedFile = path.replace("/styles/", "");
-
-    // Sanitize the path component
-    const sanitizedFile = sanitizePathComponent(requestedFile);
-    if (!sanitizedFile) {
-      return new Response("Bad Request", { status: 400 });
+    // Route handling
+    if (path === '/' && req.method === 'GET') {
+      return this.handleGetIndex();
     }
 
-    // Validate path is within styles directory
-    const filePath = validatePathWithinBase(sanitizedFile, PATHS.STYLES_DIR);
-    if (!filePath) {
-      return new Response("Forbidden", { status: 403 });
+    if (path === '/styles/theme.css' && req.method === 'GET') {
+      return this.handleGetTheme();
     }
 
-    return serveFile(filePath);
-  }
-
-  // Route: GET /logo.svg -> logo image
-  if (path === "/logo.svg" && request.method === "GET") {
-    return serveFile(PATHS.LOGO_SVG);
-  }
-
-  // Route: GET /events -> SSE stream
-  if (path === "/events" && request.method === "GET") {
-    // Use a simple IP - all connections are localhost after F002
-    const clientIP = "127.0.0.1";
-    if (!sseRateLimiter.isAllowed(clientIP)) {
-      return new Response("Too Many Requests", {
-        status: 429,
-        headers: { "Retry-After": "60" },
-      });
+    if (path === '/api/entries' && req.method === 'GET') {
+      return this.handleGetEntries();
     }
-    const rawSession = url.searchParams.get("session");
-    const session = validateSessionId(rawSession) || currentSessionId;
-    if (session && session !== watcher.getCurrentSessionId()) {
-      watcher.setSession(session);
+
+    if (path === '/events' && req.method === 'GET') {
+      return this.handleSSE(req);
     }
-    return handleSSE(request);
+
+    if (path === '/shutdown' && req.method === 'POST') {
+      return this.handleShutdown(req);
+    }
+
+    // 404 for unknown routes
+    return new Response('Not Found', { status: 404 });
   }
 
-  // Route: GET /api/sessions -> JSON list of sessions
-  if (path === "/api/sessions" && request.method === "GET") {
-    return await handleSessionsList();
+  /**
+   * Handle GET / - Return HTML page
+   *
+   * @returns HTML response with security headers
+   */
+  private handleGetIndex(): Response {
+    const html = this.getHTMLTemplate();
+
+    return new Response(html, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net",
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+      },
+    });
   }
 
-  // Route: GET /api/entries -> JSON array of all entries
-  if (path === "/api/entries" && request.method === "GET") {
-    const rawSession = url.searchParams.get("session");
-    const session = validateSessionId(rawSession) || currentSessionId;
-    if (session && session !== watcher.getCurrentSessionId()) {
-      watcher.setSession(session);
-    }
-    const entries = watcher.getAllEntries();
+  /**
+   * Handle GET /styles/theme.css - Return CSS theme
+   *
+   * @returns CSS response
+   */
+  private handleGetTheme(): Response {
+    const css = this.getCSSTheme();
+
+    return new Response(css, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/css; charset=utf-8',
+      },
+    });
+  }
+
+  /**
+   * Handle GET /api/entries - Return log entries as JSON
+   *
+   * @returns JSON response with CORS headers
+   */
+  private async handleGetEntries(): Promise<Response> {
+    const entries = await this.readLogEntries();
+
     return new Response(JSON.stringify(entries), {
+      status: 200,
       headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": getLocalhostOrigin(SERVER_CONFIG.PORT),
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': `http://localhost:${this.config.port}`,
       },
     });
   }
 
-  // Route: GET /api/dashboard -> Dashboard data
-  if (path === "/api/dashboard" && request.method === "GET") {
-    try {
-      const data = await dashboardService.getData();
-      return Response.json(data);
-    } catch (error) {
-      console.error("Dashboard error:", error);
-      return Response.json(
-        { error: "Failed to load dashboard data" },
-        { status: 500 }
-      );
+  /**
+   * Handle GET /events - SSE stream for realtime updates
+   *
+   * @param req - The HTTP request
+   * @returns SSE stream response
+   */
+  private async handleSSE(req: Request): Promise<Response> {
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1';
+
+    // Check rate limit
+    if (!this.rateLimiter.isAllowed(clientIP)) {
+      return new Response('Rate limit exceeded', { status: 429 });
     }
+
+    // Create a stream for SSE
+    const stream = new ReadableStream({
+      start: async (controller) => {
+        const encoder = new TextEncoder();
+
+        // Helper to send SSE messages
+        const send = (event: string, data: any) => {
+          const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+          controller.enqueue(encoder.encode(message));
+        };
+
+        // Send initial entries
+        const entries = await this.readLogEntries();
+        send('entries', entries);
+
+        // Create a writer wrapper to track this client
+        const writer = {
+          send,
+          controller,
+        };
+
+        // Store reference for broadcasting updates
+        this.sseClients.add(writer as any);
+
+        // Clean up on connection close
+        req.signal?.addEventListener('abort', () => {
+          this.sseClients.delete(writer as any);
+          controller.close();
+        });
+      },
+    });
+
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   }
 
-  // Route: GET /api/summaries -> Claude Code session summaries
-  if (path === "/api/summaries" && request.method === "GET") {
-    try {
-      const project = url.searchParams.get("project") || undefined;
-      const data = await sessionSummaryService.getSummaries(project);
-      return Response.json(data);
-    } catch (error) {
-      console.error("Session summaries error:", error);
-      return Response.json(
-        { error: "Failed to load session summaries" },
-        { status: 500 }
-      );
-    }
-  }
-
-  // Route: POST /shutdown -> Gracefully shut down the server
-  if (path === "/shutdown" && request.method === "POST") {
-    // Verify authentication
-    const authHeader = request.headers.get("Authorization");
-    if (!verifyAuthToken(authHeader, AUTH_TOKEN)) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: {
-          "Content-Type": "application/json",
-          "WWW-Authenticate": "Bearer",
-        },
-      });
+  /**
+   * Handle POST /shutdown - Authenticated shutdown
+   *
+   * @param req - The HTTP request
+   * @returns Success or error response
+   */
+  private async handleShutdown(req: Request): Promise<Response> {
+    // Verify bearer token
+    if (!verifyBearerToken(req, this.config.shutdownToken)) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    console.log("\n🛑 Shutdown requested via API");
-    // Respond before shutting down
+    // Schedule shutdown after response is sent
     setTimeout(() => {
-      watcher.stop();
-      planWatcher.stop();
-      server.stop();
-      process.exit(0);
-    }, TIMING.SHUTDOWN_DELAY_MS);
-    return new Response(JSON.stringify({ status: "shutting_down" }), {
+      this.stop().then(() => {
+        process.exit(0);
+      });
+    }, 100);
+
+    return new Response(JSON.stringify({ message: 'Shutting down' }), {
+      status: 200,
       headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": getLocalhostOrigin(SERVER_CONFIG.PORT),
+        'Content-Type': 'application/json',
       },
     });
   }
 
-  // Route: GET /api/plans -> List all plans
-  if (path === "/api/plans" && request.method === "GET") {
-    const includeCompleted = url.searchParams.get("completed") !== "false";
-    const plans = planWatcher.getAllPlans(includeCompleted);
-    const response: PlanListResponse = {
-      plans,
-      activePlans: plans.filter((p) => p.status === "active").length,
-      completedPlans: plans.filter((p) => p.status === "completed").length,
-    };
-    return Response.json(response);
-  }
-
-  // Route: GET /api/plans/:name -> Get specific plan data
-  if (path.startsWith("/api/plans/") && request.method === "GET") {
-    const rawName = path.replace("/api/plans/", "");
-
-    // Validate plan name format
-    const name = validatePlanName(rawName);
-    if (!name) {
-      return Response.json({ error: "Invalid plan name" }, { status: 400 });
-    }
-
-    const plan = planWatcher.getPlan(name);
-    if (!plan) {
-      return Response.json({ error: "Plan not found" }, { status: 404 });
-    }
-    return Response.json(plan);
-  }
-
-  // Route: GET /events/plans -> SSE stream for plan updates
-  if (path === "/events/plans" && request.method === "GET") {
-    // Use a simple IP - all connections are localhost after F002
-    const clientIP = "127.0.0.1";
-    if (!sseRateLimiter.isAllowed(clientIP)) {
-      return new Response("Too Many Requests", {
-        status: 429,
-        headers: { "Retry-After": "60" },
+  /**
+   * Start file watcher for log file
+   *
+   * Watches hooks-log.txt for changes and broadcasts updates to SSE clients.
+   */
+  private startFileWatcher(): void {
+    try {
+      this.watcher = watch(this.logFilePath, async (eventType) => {
+        if (eventType === 'change') {
+          // Read updated entries and broadcast to all SSE clients
+          const entries = await this.readLogEntries();
+          this.broadcastToClients('entries', entries);
+        }
       });
+    } catch (error) {
+      // Log file might not exist yet, that's ok
+      console.log('Log file watcher: file not found, will create on first write');
     }
-    return handlePlanSSE();
   }
 
-  // 404 for unknown routes
-  return new Response("Not Found", { status: 404 });
+  /**
+   * Broadcast a message to all connected SSE clients
+   *
+   * @param event - Event name
+   * @param data - Event data
+   */
+  private broadcastToClients(event: string, data: any): void {
+    for (const client of this.sseClients) {
+      try {
+        (client as any).send(event, data);
+      } catch (error) {
+        // Client disconnected, remove it
+        this.sseClients.delete(client);
+      }
+    }
+  }
+
+  /**
+   * Read log entries from hooks-log.txt
+   *
+   * Parses JSONL format (one JSON object per line).
+   *
+   * @returns Array of log entry objects
+   */
+  private async readLogEntries(): Promise<any[]> {
+    try {
+      const content = await readFile(this.logFilePath, 'utf-8');
+      const lines = content.trim().split('\n').filter(line => line.length > 0);
+
+      const entries = [];
+      for (const line of lines) {
+        try {
+          entries.push(JSON.parse(line));
+        } catch {
+          // Skip malformed lines
+        }
+      }
+
+      return entries;
+    } catch (error) {
+      // File doesn't exist yet or can't be read
+      return [];
+    }
+  }
+
+  /**
+   * Stop the server and clean up resources
+   *
+   * Closes all SSE connections, stops file watcher, and stops the HTTP server.
+   */
+  async stop(): Promise<void> {
+    // Close all SSE connections
+    for (const client of this.sseClients) {
+      try {
+        (client as any).controller.close();
+      } catch {
+        // Ignore errors during cleanup
+      }
+    }
+    this.sseClients.clear();
+
+    // Stop file watcher
+    if (this.watcher) {
+      this.watcher.close();
+      this.watcher = undefined;
+    }
+
+    // Stop HTTP server
+    if (this.server) {
+      this.server.stop();
+      this.server = undefined;
+    }
+  }
+
+  /**
+   * Get HTML template for the viewer UI
+   *
+   * @returns HTML string
+   */
+  private getHTMLTemplate(): string {
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Hall Monitor</title>
+  <link rel="stylesheet" href="/styles/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+  <div id="app">
+    <h1>Claude Hall Monitor</h1>
+    <div class="entries">
+      <div v-for="entry in entries" :key="entry.timestamp" class="entry">
+        <pre>{{ JSON.stringify(entry, null, 2) }}</pre>
+      </div>
+    </div>
+  </div>
+  <script>
+    const { createApp } = Vue;
+
+    createApp({
+      data() {
+        return {
+          entries: []
+        };
+      },
+      mounted() {
+        // Connect to SSE endpoint
+        const eventSource = new EventSource('/events');
+
+        eventSource.addEventListener('entries', (e) => {
+          this.entries = JSON.parse(e.data);
+        });
+
+        eventSource.addEventListener('error', (e) => {
+          console.error('SSE error:', e);
+        });
+      }
+    }).mount('#app');
+  </script>
+</body>
+</html>`;
+  }
+
+  /**
+   * Get CSS theme
+   *
+   * @returns CSS string
+   */
+  private getCSSTheme(): string {
+    return `:root {
+  --primary: #6366f1;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --border: #334155;
+  --shadow: rgba(0, 0, 0, 0.5);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  padding: 20px;
+}
+
+h1 {
+  color: var(--primary);
+  margin-bottom: 20px;
+  font-size: 2rem;
+}
+
+.entries {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.entry {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.entry pre {
+  color: var(--text-secondary);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+`;
+  }
 }
 
 /**
- * Start the HTTP server
+ * Auto-start when run directly
  */
-const server = Bun.serve({
-  port: SERVER_CONFIG.PORT,
-  hostname: SERVER_CONFIG.HOST,
-  fetch: handleRequest,
-  idleTimeout: 0, // Disable timeout for SSE connections
-});
-
-console.log(`🔍 Hook Viewer running at ${SERVER_CONFIG.URL}`);
-console.log(`🔑 Shutdown token: ${AUTH_TOKEN}`);
-
-/**
- * Graceful shutdown
- */
-process.on("SIGINT", () => {
-  console.log("\nShutting down...");
-  watcher.stop();
-  planWatcher.stop();
-  sseRateLimiter.stop();
-  server.stop();
-  process.exit(0);
-});
+if (import.meta.main) {
+  const server = new ViewerServer();
+  server.start();
+}

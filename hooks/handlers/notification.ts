@@ -1,91 +1,58 @@
 /**
- * @fileoverview Notification Hook Handler
+ * Notification hook handler
  *
- * Triggered when Claude Code generates a notification. Notifications can be
- * desktop notifications, alerts, status updates, or other user-facing messages.
+ * Implements: F016 - System Event Handlers
  *
- * ## Capabilities
- *
- * - **Notification Logging**: Track all notifications for auditing
- * - **Custom Routing**: Forward notifications to external systems
- * - **Filtering**: Suppress or modify notifications
- *
- * ## Use Cases
- *
- * 1. **Audit Logging**: Track all notifications for compliance
- * 2. **External Integration**: Forward to Slack, Teams, email, etc.
- * 3. **Custom Handlers**: Replace default notification behavior
- * 4. **Filtering**: Suppress noisy or unwanted notifications
- * 5. **Analytics**: Track notification patterns and frequency
- *
- * ## Notification Types
- *
- * The `notification_type` field indicates the category of notification:
- * - success: Task completed successfully
- * - error: An error occurred
- * - info: Informational message
- * - warning: Warning message
- *
- * @example Input JSON
- * ```json
- * {
- *   "hook_event_name": "Notification",
- *   "session_id": "session-abc123",
- *   "transcript_path": "C:\\Users\\user\\.claude\\sessions\\session-abc123.json",
- *   "cwd": "C:\\Users\\user\\project",
- *   "message": "Build completed successfully",
- *   "title": "Claude Code",
- *   "notification_type": "success",
- *   "permission_mode": "default"
- * }
- * ```
- *
- * @example Output JSON
- * ```json
- * {
- *   "continue": true
- * }
- * ```
- *
- * @module hooks/notification
+ * This handler:
+ * - Collects notification metric when system sends notifications
+ * - Captures session_id, message content, and working directory
+ * - Returns empty NotificationHookResult (no modifications)
  */
 
-import {
-  type NotificationHookInput,
-  type SyncHookJSONOutput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import type { NotificationHookInput, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import { MetricsCollector } from '../metrics/collector';
+import { Database } from '../metrics/database';
+import { EventEmitter } from '../utils/event-emitter';
+import { getConfig } from '../metrics/config';
+import type { MetricEntry } from '../metrics/types';
 
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<NotificationHookInput>();
+// Create shared instances
+const config = getConfig();
+const emitter = new EventEmitter();
+const database = new Database(config.databasePath);
+const collector = new MetricsCollector({
+  database,
+  emitter,
+  flushIntervalMs: 5000,
+  maxBufferSize: 100,
+});
 
-  // Log the notification with structured data
-  await log("Notification", input.session_id, {
-    cwd: input.cwd,
-    title: input.title,
-    message: input.message,
-    notification_type: input.notification_type,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    received_at: new Date().toISOString(),
-  });
+const hook = async (params: NotificationHookInput) => {
+  const { session_id, cwd, message } = params;
 
-  // Build the output response
-  // Notification doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
+  // Create metric for notification
+  const metric: MetricEntry = {
+    id: `notification-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    session_id,
+    project_path: cwd,
+    source: 'hook',
+    event_type: 'notification',
+    event_category: 'custom',
+    data: {
+      message,
+      cwd,
+    },
+    tags: ['notification', 'system'],
   };
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
+  collector.collect(metric);
 
-try {
-  await main();
-} catch (error) {
-  console.error("Handler error:", error);
-  // Always output valid JSON
-  writeOutput({ continue: true });
-  process.exit(1);
-}
+  // Return valid HookJSONOutput
+  const result: HookJSONOutput = {};
+
+  // Output valid JSON
+  console.log(JSON.stringify(result));
+};
+
+hook(JSON.parse(process.argv[2] || '{}'));

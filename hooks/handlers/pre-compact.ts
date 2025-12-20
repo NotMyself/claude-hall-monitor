@@ -1,88 +1,57 @@
 /**
- * @fileoverview PreCompact Hook Handler
+ * PreCompact hook handler
  *
- * Triggered before Claude Code compacts the conversation context. Compaction
- * occurs when the context window fills up (auto) or when explicitly triggered
- * by the user (manual via /compact command).
+ * Implements: F016 - System Event Handlers
  *
- * ## Capabilities
- *
- * - **Compaction Logging**: Track when and why compaction occurs
- * - **State Preservation**: Save important state before compaction
- * - **Custom Instructions**: Log custom compaction instructions
- *
- * ## Use Cases
- *
- * 1. **Context Analytics**: Track context usage patterns
- * 2. **State Preservation**: Save important information before compaction
- * 3. **Logging**: Record compaction events for debugging
- * 4. **Custom Instructions Tracking**: Monitor what instructions are preserved
- * 5. **Performance Analysis**: Understand context window utilization
- *
- * ## Trigger Types
- *
- * - `manual`: User explicitly triggered compaction (/compact command)
- * - `auto`: Context window filled, automatic compaction triggered
- *
- * @example Input JSON
- * ```json
- * {
- *   "hook_event_name": "PreCompact",
- *   "session_id": "session-abc123",
- *   "transcript_path": "C:\\Users\\user\\.claude\\sessions\\session-abc123.json",
- *   "cwd": "C:\\Users\\user\\project",
- *   "trigger": "auto",
- *   "custom_instructions": "Preserve context about the authentication system",
- *   "permission_mode": "default"
- * }
- * ```
- *
- * @example Output JSON
- * ```json
- * {
- *   "continue": true
- * }
- * ```
- *
- * @module hooks/pre-compact
+ * This handler:
+ * - Collects pre_compact metric before context compaction
+ * - Captures session_id and working directory
+ * - Returns empty PreCompactHookResult (no modifications)
  */
 
-import {
-  type PreCompactHookInput,
-  type SyncHookJSONOutput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import type { PreCompactHookInput, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import { MetricsCollector } from '../metrics/collector';
+import { Database } from '../metrics/database';
+import { EventEmitter } from '../utils/event-emitter';
+import { getConfig } from '../metrics/config';
+import type { MetricEntry } from '../metrics/types';
 
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<PreCompactHookInput>();
+// Create shared instances
+const config = getConfig();
+const emitter = new EventEmitter();
+const database = new Database(config.databasePath);
+const collector = new MetricsCollector({
+  database,
+  emitter,
+  flushIntervalMs: 5000,
+  maxBufferSize: 100,
+});
 
-  // Log the pre-compaction event with structured data
-  await log("PreCompact", input.session_id, {
-    cwd: input.cwd,
-    trigger: input.trigger,
-    has_custom_instructions: input.custom_instructions !== null,
-    custom_instructions: input.custom_instructions,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    compacting_at: new Date().toISOString(),
-  });
+const hook = async (params: PreCompactHookInput) => {
+  const { session_id, cwd } = params;
 
-  // Build the output response
-  // PreCompact doesn't support hookSpecificOutput, just continue
-  const output: SyncHookJSONOutput = {
-    continue: true,
+  // Create metric for pre-compact
+  const metric: MetricEntry = {
+    id: `pre-compact-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    session_id,
+    project_path: cwd,
+    source: 'hook',
+    event_type: 'pre_compact',
+    event_category: 'session',
+    data: {
+      cwd,
+    },
+    tags: ['compact', 'context', 'pre'],
   };
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
+  collector.collect(metric);
 
-try {
-  await main();
-} catch (error) {
-  console.error("Handler error:", error);
-  // Always output valid JSON
-  writeOutput({ continue: true });
-  process.exit(1);
-}
+  // Return valid HookJSONOutput
+  const result: HookJSONOutput = {};
+
+  // Output valid JSON
+  console.log(JSON.stringify(result));
+};
+
+hook(JSON.parse(process.argv[2] || '{}'));

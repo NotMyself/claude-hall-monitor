@@ -1,105 +1,59 @@
 /**
- * @fileoverview SubagentStart Hook Handler
+ * SubagentStart hook handler
  *
- * Triggered when Claude Code spawns a subagent using the Task tool. Subagents
- * are specialized agents that handle specific types of tasks (exploration,
- * planning, code review, etc.).
+ * Implements: F015 - Subagent Lifecycle Handlers
  *
- * ## Capabilities
- *
- * - **Additional Context**: Inject context specific to the agent type
- * - **Agent Logging**: Track agent hierarchies and spawning patterns
- * - **Resource Monitoring**: Track resource usage by agent type
- *
- * ## Use Cases
- *
- * 1. **Agent Analytics**: Track which agent types are spawned most often
- * 2. **Context Injection**: Add type-specific context for agents
- * 3. **Hierarchy Tracking**: Monitor parent-child agent relationships
- * 4. **Resource Monitoring**: Track subagent resource usage
- * 5. **Debugging**: Understand agent spawning patterns
- *
- * ## Agent Types
- *
- * Common agent types include:
- * - `Explore`: Fast codebase exploration
- * - `Plan`: Implementation planning
- * - `general-purpose`: General multi-step tasks
- * - Custom agent types defined in configuration
- *
- * @example Input JSON
- * ```json
- * {
- *   "hook_event_name": "SubagentStart",
- *   "session_id": "session-abc123",
- *   "transcript_path": "C:\\Users\\user\\.claude\\sessions\\session-abc123.json",
- *   "cwd": "C:\\Users\\user\\project",
- *   "agent_id": "agent-xyz789",
- *   "agent_type": "Explore",
- *   "permission_mode": "default"
- * }
- * ```
- *
- * @example Output JSON (with agent-specific context)
- * ```json
- * {
- *   "continue": true,
- *   "hookSpecificOutput": {
- *     "hookEventName": "SubagentStart",
- *     "additionalContext": "Agent 'Explore' started. Focus on finding relevant files efficiently."
- *   }
- * }
- * ```
- *
- * @example Output JSON (pass-through, no modification)
- * ```json
- * {
- *   "continue": true
- * }
- * ```
- *
- * @module hooks/subagent-start
+ * This handler:
+ * - Collects subagent_started metric when a subagent spawns
+ * - Captures session_id, subagent_id, and working directory
+ * - Returns empty SubagentStartHookResult (no modifications)
  */
 
-import {
-  type SubagentStartHookInput,
-  type SyncHookJSONOutput,
-} from "@anthropic-ai/claude-agent-sdk";
-import { log, readInput, writeOutput } from "../utils/logger.ts";
+import type { SubagentStartHookInput, HookJSONOutput } from '@anthropic-ai/claude-agent-sdk';
+import { MetricsCollector } from '../metrics/collector';
+import { Database } from '../metrics/database';
+import { EventEmitter } from '../utils/event-emitter';
+import { getConfig } from '../metrics/config';
+import type { MetricEntry } from '../metrics/types';
 
-async function main(): Promise<void> {
-  // Read and parse the hook input from stdin
-  const input = await readInput<SubagentStartHookInput>();
+// Create shared instances
+const config = getConfig();
+const emitter = new EventEmitter();
+const database = new Database(config.databasePath);
+const collector = new MetricsCollector({
+  database,
+  emitter,
+  flushIntervalMs: 5000,
+  maxBufferSize: 100,
+});
 
-  // Log the subagent start with structured data
-  await log("SubagentStart", input.session_id, {
-    cwd: input.cwd,
-    agent_id: input.agent_id,
-    agent_type: input.agent_type,
-    transcript_path: input.transcript_path,
-    permission_mode: input.permission_mode,
-    started_at: new Date().toISOString(),
-  });
+const hook = async (params: SubagentStartHookInput) => {
+  const { session_id, cwd, agent_id, agent_type } = params;
 
-  // Build the output response
-  // Optionally inject context specific to the agent type
-  const output: SyncHookJSONOutput = {
-    continue: true,
-    hookSpecificOutput: {
-      hookEventName: "SubagentStart",
-      additionalContext: `Subagent '${input.agent_type}' (${input.agent_id}) spawned`,
+  // Create metric for subagent start
+  const metric: MetricEntry = {
+    id: `subagent-start-${Date.now()}`,
+    timestamp: new Date().toISOString(),
+    session_id,
+    project_path: cwd,
+    source: 'hook',
+    event_type: 'subagent_started',
+    event_category: 'session',
+    data: {
+      agent_id,
+      agent_type,
+      cwd,
     },
+    tags: ['subagent', 'start', agent_id],
   };
 
-  // Write JSON response to stdout
-  writeOutput(output);
-}
+  collector.collect(metric);
 
-try {
-  await main();
-} catch (error) {
-  console.error("Handler error:", error);
-  // Always output valid JSON
-  writeOutput({ continue: true });
-  process.exit(1);
-}
+  // Return valid HookJSONOutput
+  const result: HookJSONOutput = {};
+
+  // Output valid JSON
+  console.log(JSON.stringify(result));
+};
+
+hook(JSON.parse(process.argv[2] || '{}'));

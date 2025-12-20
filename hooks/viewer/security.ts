@@ -1,150 +1,176 @@
 /**
- * Security utilities for path sanitization, session ID validation,
- * and other security functions.
+ * Security utilities for the realtime log viewer
+ *
+ * Provides validation and security hardening functions:
+ * - Session ID validation
+ * - Path traversal prevention
+ * - Bearer token verification
+ * - Rate limiting for SSE connections
  */
-import { randomBytes } from "node:crypto";
+
+import { resolve, normalize } from 'node:path';
 
 /**
- * Result of session ID validation
+ * Validates session ID format
+ *
+ * Session IDs must be:
+ * - Alphanumeric characters and hyphens only
+ * - Maximum 64 characters in length
+ *
+ * @param sessionId - The session ID to validate
+ * @returns true if valid, false otherwise
  */
-export type SessionIdResult = string | null;
-
-/**
- * Result of path sanitization
- */
-export type SanitizedPath = string | null;
-
-/**
- * Rate limiter entry for tracking connections
- */
-export interface RateLimitEntry {
-  count: number;
-  windowStart: number;
+export function isValidSessionId(sessionId: string): boolean {
+  if (typeof sessionId !== 'string' || sessionId.length === 0 || sessionId.length > 64) {
+    return false;
+  }
+  // Only allow alphanumeric characters and hyphens
+  return /^[a-zA-Z0-9-]+$/.test(sessionId);
 }
 
 /**
- * Validate a session ID matches expected format.
- * Session IDs are alphanumeric with hyphens, max 64 chars.
+ * Validates that a requested path is within an allowed base directory
  *
- * @param id - The session ID to validate
- * @returns The validated session ID or null if invalid
- */
-export function validateSessionId(id: string | null): string | null {
-  if (!id || typeof id !== "string") return null;
-  if (id.length > 64) return null;
-  if (!/^[a-zA-Z0-9-]+$/.test(id)) return null;
-  return id;
-}
-
-/**
- * Sanitize a path component (filename or single directory name).
- * Rejects traversal attempts, null bytes, and invalid characters.
+ * Prevents path traversal attacks by:
+ * 1. Resolving both paths to absolute paths
+ * 2. Normalizing paths to remove ../ and ./
+ * 3. Checking that the requested path starts with the allowed base
  *
- * @param component - The path component to sanitize
- * @returns The sanitized component or null if invalid
+ * @param path - The requested file path
+ * @param allowedBase - The base directory that access is restricted to
+ * @returns true if the path is safe, false if it attempts traversal
  */
-export function sanitizePathComponent(component: string): string | null {
-  if (!component || typeof component !== "string") return null;
+export function validatePath(path: string, allowedBase: string): boolean {
+  if (typeof path !== 'string' || typeof allowedBase !== 'string') {
+    return false;
+  }
 
-  // Decode URL encoding first (handles %2e%2e etc.)
-  let decoded: string;
   try {
-    decoded = decodeURIComponent(component);
+    // Resolve to absolute paths
+    const resolvedPath = resolve(normalize(path));
+    const resolvedBase = resolve(normalize(allowedBase));
+
+    // Check if the resolved path starts with the allowed base
+    return resolvedPath.startsWith(resolvedBase);
   } catch {
-    return null; // Invalid encoding
+    return false;
+  }
+}
+
+/**
+ * Verifies Bearer token from Authorization header
+ *
+ * Expects header format: "Authorization: Bearer <token>"
+ * Performs constant-time comparison to prevent timing attacks
+ *
+ * @param req - The HTTP request object
+ * @param expectedToken - The expected token value
+ * @returns true if token matches, false otherwise
+ */
+export function verifyBearerToken(req: Request, expectedToken: string): boolean {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return false;
   }
 
-  // Reject null bytes
-  if (decoded.includes("\x00")) return null;
-
-  // Reject path traversal
-  if (decoded.includes("..")) return null;
-  if (decoded.includes("/") || decoded.includes("\\")) return null;
-
-  // Reject empty or whitespace-only
-  if (!decoded.trim()) return null;
-
-  return decoded;
-}
-
-/**
- * Validate a path is within a base directory.
- *
- * @param relativePath - The relative path to validate
- * @param baseDir - The base directory path
- * @returns The full path if valid, null if outside base
- */
-export function validatePathWithinBase(
-  relativePath: string,
-  baseDir: string
-): string | null {
-  const { join, resolve, normalize } = require("node:path");
-
-  const normalizedBase = normalize(resolve(baseDir));
-  const fullPath = normalize(resolve(baseDir, relativePath));
-
-  if (!fullPath.startsWith(normalizedBase)) {
-    return null;
+  const parts = authHeader.split(' ');
+  if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    return false;
   }
 
-  return fullPath;
-}
-
-/**
- * Get the localhost origin string for CORS.
- *
- * @param port - The port number
- * @returns The localhost origin URL
- */
-export function getLocalhostOrigin(port: number): string {
-  return `http://localhost:${port}`;
-}
-
-/**
- * Validate a plan name for the /api/plans/:name endpoint.
- * Plan names are ASCII alphanumeric with underscores and hyphens.
- *
- * @param name - The plan name to validate
- * @returns The validated plan name or null if invalid
- */
-export function validatePlanName(name: string): string | null {
-  if (!name || typeof name !== "string") return null;
-
-  // Decode URL encoding first
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(name);
-  } catch {
-    return null; // Invalid encoding
+  const providedToken = parts[1];
+  if (!providedToken || !expectedToken) {
+    return false;
   }
 
-  // Reject null bytes
-  if (decoded.includes("\x00")) return null;
+  // Constant-time comparison to prevent timing attacks
+  if (providedToken.length !== expectedToken.length) {
+    return false;
+  }
 
-  // Only allow ASCII alphanumeric, underscore, hyphen
-  if (!/^[a-zA-Z0-9_-]+$/.test(decoded)) return null;
+  let mismatch = 0;
+  for (let i = 0; i < providedToken.length; i++) {
+    // Use bitwise OR to accumulate mismatches without short-circuiting
+    mismatch |= providedToken.charCodeAt(i) ^ expectedToken.charCodeAt(i);
+  }
 
-  // Reasonable length limit
-  if (decoded.length > 128) return null;
-
-  return decoded;
+  return mismatch === 0;
 }
 
 /**
- * Generate a secure random token for authentication.
+ * Rate limiter for SSE connections
+ *
+ * Implements EC005: Limits SSE connections per IP address to prevent
+ * resource exhaustion attacks. Uses a sliding window algorithm with
+ * automatic cleanup of expired entries.
  */
-export function generateAuthToken(): string {
-  return randomBytes(32).toString("hex");
-}
+export class RateLimiter {
+  private attempts: Map<string, number[]> = new Map();
+  private readonly limit: number;
+  private readonly windowMs: number;
 
-/**
- * Verify an authorization header matches the expected token.
- */
-export function verifyAuthToken(
-  header: string | null,
-  expectedToken: string
-): boolean {
-  if (!header) return false;
-  const token = header.replace(/^Bearer\s+/i, "");
-  return token === expectedToken;
+  /**
+   * Creates a new rate limiter
+   *
+   * @param limit - Maximum number of connections allowed per IP
+   * @param windowMs - Time window in milliseconds
+   */
+  constructor(limit: number, windowMs: number) {
+    this.limit = limit;
+    this.windowMs = windowMs;
+  }
+
+  /**
+   * Check if an IP address is allowed to make a new connection
+   *
+   * Automatically cleans up expired entries and tracks new attempts.
+   *
+   * @param ip - The IP address to check
+   * @returns true if allowed, false if rate limit exceeded
+   */
+  isAllowed(ip: string): boolean {
+    const now = Date.now();
+    const windowStart = now - this.windowMs;
+
+    // Get existing attempts for this IP
+    let ipAttempts = this.attempts.get(ip) || [];
+
+    // Remove expired attempts (older than the window)
+    ipAttempts = ipAttempts.filter(timestamp => timestamp > windowStart);
+
+    // Check if limit exceeded
+    if (ipAttempts.length >= this.limit) {
+      return false;
+    }
+
+    // Record this attempt
+    ipAttempts.push(now);
+    this.attempts.set(ip, ipAttempts);
+
+    // Cleanup: remove IPs with no recent attempts
+    this.cleanup(windowStart);
+
+    return true;
+  }
+
+  /**
+   * Remove IPs with no attempts within the current window
+   *
+   * @param windowStart - Timestamp marking the start of the current window
+   */
+  private cleanup(windowStart: number): void {
+    const entries = Array.from(this.attempts.entries());
+    for (const [ip, timestamps] of entries) {
+      // Filter out expired timestamps
+      const activeTimestamps = timestamps.filter(ts => ts > windowStart);
+
+      if (activeTimestamps.length === 0) {
+        // No active attempts, remove this IP
+        this.attempts.delete(ip);
+      } else if (activeTimestamps.length < timestamps.length) {
+        // Some timestamps expired, update the array
+        this.attempts.set(ip, activeTimestamps);
+      }
+    }
+  }
 }
