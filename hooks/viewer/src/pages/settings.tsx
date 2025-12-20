@@ -4,23 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-
-type Theme = 'light' | 'dark' | 'system';
+import { useTheme } from '@/hooks';
 
 export function SettingsPage() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    return (localStorage.getItem('theme') as Theme) || 'system';
-  });
+  const { theme, setTheme } = useTheme();
   const [soundEnabled, setSoundEnabled] = useState(() => {
     return localStorage.getItem('soundEnabled') !== 'false';
   });
-
-  useEffect(() => {
-    const isDark = theme === 'dark' ||
-      (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', isDark);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     localStorage.setItem('soundEnabled', String(soundEnabled));

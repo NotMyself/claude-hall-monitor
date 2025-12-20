@@ -3,3 +3,4 @@ export { usePlans } from './use-plans';
 export { useMetrics, useCostBreakdown } from './use-metrics';
 export { useSessions, useSession } from './use-sessions';
 export { useKeyboardShortcuts, useNavigationShortcuts } from './use-keyboard-shortcuts';
+export { useTheme } from './use-theme';
