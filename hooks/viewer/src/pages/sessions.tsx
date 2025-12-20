@@ -2,15 +2,17 @@ import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SessionList, SessionDetail } from '@/components/sessions';
+import { SessionListSkeleton, SessionDetailSkeleton, EmptyState } from '@/components/shared';
 import { useSessions } from '@/hooks/use-sessions';
 import type { Session } from '@/types/sessions';
+import { Database } from 'lucide-react';
 
 export function SessionsPage() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [modelFilter, setModelFilter] = useState<string>('all');
 
-  const { sessions, loading } = useSessions();
+  const { sessions, loading, error } = useSessions();
 
   // Get unique models for filter dropdown
   const models = useMemo(() => {
@@ -27,8 +29,39 @@ export function SessionsPage() {
     });
   }, [sessions, searchQuery, modelFilter]);
 
+  if (loading) {
+    return (
+      <div className="h-full flex flex-col gap-4 p-6">
+        <div className="flex gap-4">
+          <div className="h-10 w-64 bg-muted animate-pulse rounded" />
+          <div className="h-10 w-48 bg-muted animate-pulse rounded" />
+        </div>
+        <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
+          <div className="col-span-1">
+            <SessionListSkeleton />
+          </div>
+          <div className="col-span-2">
+            <SessionDetailSkeleton />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center p-6">
+        <EmptyState
+          icon={<Database className="h-12 w-12" />}
+          title="Failed to load sessions"
+          description={error.message}
+        />
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-4 p-6">
       {/* Filters */}
       <div className="flex gap-4">
         <Input
@@ -54,20 +87,36 @@ export function SessionsPage() {
       {/* Split panel */}
       <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
         <div className="col-span-1">
-          <SessionList
-            sessions={filteredSessions}
-            selectedSessionId={selectedSession?.session_id ?? null}
-            onSelect={setSelectedSession}
-            loading={loading}
-          />
+          {sessions.length === 0 ? (
+            <EmptyState
+              icon={<Database className="h-12 w-12" />}
+              title="No sessions found"
+              description="No Claude sessions have been recorded yet. Start a conversation to see sessions appear here."
+            />
+          ) : filteredSessions.length === 0 ? (
+            <EmptyState
+              icon={<Database className="h-12 w-12" />}
+              title="No matching sessions"
+              description="Try adjusting your search or filter criteria"
+            />
+          ) : (
+            <SessionList
+              sessions={filteredSessions}
+              selectedSessionId={selectedSession?.session_id ?? null}
+              onSelect={setSelectedSession}
+              loading={loading}
+            />
+          )}
         </div>
         <div className="col-span-2">
           {selectedSession ? (
             <SessionDetail session={selectedSession} />
           ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Select a session to view details
-            </div>
+            <EmptyState
+              icon={<Database className="h-12 w-12" />}
+              title="Select a session"
+              description="Choose a session from the list to view its metrics and details"
+            />
           )}
         </div>
       </div>
