@@ -4,3 +4,4 @@ export { ActiveOrchestrations } from './active-orchestrations';
 export { PlanList } from './plan-list';
 export { PlanDetail } from './plan-detail';
 export { FeatureList } from './feature-list';
+export { OrchestrationTimeline } from './orchestration-timeline';
