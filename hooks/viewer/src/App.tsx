@@ -1,21 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-
-// Placeholder page components (will be replaced in later features)
-function OverviewPage() {
-  return <div>Overview Page</div>;
-}
-
-function PlansPage() {
-  return <div>Plans Page</div>;
-}
-
-function SessionsPage() {
-  return <div>Sessions Page</div>;
-}
-
-function SettingsPage() {
-  return <div>Settings Page</div>;
-}
+import { OverviewPage } from '@/pages/overview';
+import { PlansPage } from '@/pages/plans';
+import { SessionsPage } from '@/pages/sessions';
+import { SettingsPage } from '@/pages/settings';
 
 export default function App() {
   return (
