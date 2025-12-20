@@ -10,7 +10,7 @@
  */
 
 import { Database as BunDatabase } from 'bun:sqlite';
-import type { MetricEntry, QueryOptions, AggregationOptions, AggregationResult } from './types';
+import type { MetricEntry, QueryOptions, AggregationOptions, AggregationResult, PlanEvent } from './types';
 import { join } from 'path';
 import { readFileSync } from 'fs';
 
@@ -262,6 +262,81 @@ export class Database {
     // All retries exhausted
     console.warn(`Database operation failed after ${MAX_RETRIES} retries:`, lastError);
     throw lastError;
+  }
+
+  /**
+   * Insert a single plan event
+   *
+   * @param event - The plan event to insert
+   */
+  insertPlanEvent(event: PlanEvent): void {
+    this.executeWithRetry(() => {
+      const stmt = this.db.prepare(`
+        INSERT INTO plan_events (
+          id, timestamp, session_id, event_type, plan_name, plan_path,
+          feature_id, feature_description, status, pr_url, data_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      stmt.run(
+        event.id,
+        event.timestamp,
+        event.session_id,
+        event.event_type,
+        event.plan_name,
+        event.plan_path,
+        event.feature_id ?? null,
+        event.feature_description ?? null,
+        event.status ?? null,
+        event.pr_url ?? null,
+        JSON.stringify(event.data)
+      );
+    });
+  }
+
+  /**
+   * Query all plan events
+   *
+   * @returns Array of all plan events ordered by timestamp
+   */
+  queryPlanEvents(): PlanEvent[] {
+    const stmt = this.db.prepare('SELECT * FROM plan_events ORDER BY timestamp DESC');
+    const rows = stmt.all() as any[];
+    return rows.map(row => this.rowToPlanEvent(row));
+  }
+
+  /**
+   * Query plan events by plan name
+   *
+   * @param planName - The plan name to filter by
+   * @returns Array of plan events for the specified plan
+   */
+  queryPlanEventsByPlan(planName: string): PlanEvent[] {
+    const stmt = this.db.prepare('SELECT * FROM plan_events WHERE plan_name = ? ORDER BY timestamp DESC');
+    const rows = stmt.all(planName) as any[];
+    return rows.map(row => this.rowToPlanEvent(row));
+  }
+
+  /**
+   * Convert database row to PlanEvent
+   *
+   * @param row - Raw database row
+   * @returns Typed PlanEvent
+   */
+  private rowToPlanEvent(row: any): PlanEvent {
+    return {
+      id: row.id,
+      timestamp: row.timestamp,
+      session_id: row.session_id,
+      event_type: row.event_type,
+      plan_name: row.plan_name,
+      plan_path: row.plan_path,
+      feature_id: row.feature_id ?? undefined,
+      feature_description: row.feature_description ?? undefined,
+      status: row.status ?? undefined,
+      pr_url: row.pr_url ?? undefined,
+      data: JSON.parse(row.data_json),
+    };
   }
 
   /**
