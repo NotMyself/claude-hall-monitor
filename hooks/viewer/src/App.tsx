@@ -7,28 +7,36 @@ import { OverviewPage } from '@/pages/overview';
 import { PlansPage } from '@/pages/plans';
 import { SessionsPage } from '@/pages/sessions';
 import { SettingsPage } from '@/pages/settings';
+import { useNavigationShortcuts } from '@/hooks';
+
+function KeyboardShortcutsProvider({ children }: { children: React.ReactNode }) {
+  useNavigationShortcuts();
+  return <>{children}</>;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
-      <SidebarProvider>
-        <AppSidebar />
-        <SidebarInset>
-          <Header />
-          <PageContainer>
-            <ErrorBoundary>
-              <Routes>
-                <Route path="/" element={<Navigate to="/overview" replace />} />
-                <Route path="/overview" element={<OverviewPage />} />
-                <Route path="/plans" element={<PlansPage />} />
-                <Route path="/sessions" element={<SessionsPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-              </Routes>
-            </ErrorBoundary>
-          </PageContainer>
-        </SidebarInset>
-      </SidebarProvider>
-      <Toaster />
+      <KeyboardShortcutsProvider>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <Header />
+            <PageContainer>
+              <ErrorBoundary>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/overview" replace />} />
+                  <Route path="/overview" element={<OverviewPage />} />
+                  <Route path="/plans" element={<PlansPage />} />
+                  <Route path="/sessions" element={<SessionsPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                </Routes>
+              </ErrorBoundary>
+            </PageContainer>
+          </SidebarInset>
+        </SidebarProvider>
+        <Toaster />
+      </KeyboardShortcutsProvider>
     </BrowserRouter>
   );
 }
