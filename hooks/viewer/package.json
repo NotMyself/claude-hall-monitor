@@ -28,7 +28,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
-    "recharts": "^2.15.0",
+    "recharts": "2.15.4",
     "sonner": "^1.4.0",
     "tailwind-merge": "^2.6.0"
   },
