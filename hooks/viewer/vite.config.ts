@@ -23,7 +23,21 @@ export default defineConfig({
     },
   },
   build: {
+    // Output to dist/ directory (default)
     outDir: 'dist',
+    // Generate source maps for debugging
     sourcemap: true,
+    // Rollup options
+    rollupOptions: {
+      output: {
+        // Manual chunk splitting for better caching
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-slot', 'lucide-react'],
+        },
+      },
+    },
+    // Target modern browsers
+    target: 'esnext',
   },
 });
