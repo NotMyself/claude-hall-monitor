@@ -20,9 +20,9 @@ export function StatCard({ title, value, change, icon, className }: StatCardProp
         {icon}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className="text-xl md:text-2xl font-bold">{value}</div>
         {change !== undefined && (
-          <div className="flex items-center text-xs text-muted-foreground mt-1">
+          <div className="flex items-center text-xs text-muted-foreground mt-1 flex-wrap">
             {change >= 0 ? (
               <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
             ) : (

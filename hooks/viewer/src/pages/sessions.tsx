@@ -31,16 +31,16 @@ export function SessionsPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col gap-4 p-6">
-        <div className="flex gap-4">
+      <div className="h-full flex flex-col gap-3 md:gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
           <div className="h-10 w-64 bg-muted animate-pulse rounded" />
           <div className="h-10 w-48 bg-muted animate-pulse rounded" />
         </div>
-        <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
-          <div className="col-span-1">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
+          <div className="md:col-span-1">
             <SessionListSkeleton />
           </div>
-          <div className="col-span-2">
+          <div className="md:col-span-2">
             <SessionDetailSkeleton />
           </div>
         </div>
@@ -61,17 +61,17 @@ export function SessionsPage() {
   }
 
   return (
-    <div className="h-full flex flex-col gap-4 p-6">
+    <div className="h-full flex flex-col gap-3 md:gap-4">
       {/* Filters */}
-      <div className="flex gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 md:gap-4">
         <Input
           placeholder="Search projects..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
         <Select value={modelFilter} onValueChange={setModelFilter}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-full sm:w-48">
             <SelectValue placeholder="Filter by model" />
           </SelectTrigger>
           <SelectContent>
@@ -85,8 +85,8 @@ export function SessionsPage() {
       </div>
 
       {/* Split panel */}
-      <div className="flex-1 grid grid-cols-3 gap-4 min-h-0">
-        <div className="col-span-1">
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
+        <div className="md:col-span-1">
           {sessions.length === 0 ? (
             <EmptyState
               icon={<Database className="h-12 w-12" />}
@@ -108,7 +108,7 @@ export function SessionsPage() {
             />
           )}
         </div>
-        <div className="col-span-2">
+        <div className="md:col-span-2">
           {selectedSession ? (
             <SessionDetail session={selectedSession} />
           ) : (

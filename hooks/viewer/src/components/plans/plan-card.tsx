@@ -21,11 +21,11 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
 
   return (
     <Card
-      className="cursor-pointer transition-all hover:shadow-md"
+      className="cursor-pointer transition-all hover:shadow-md active:scale-[0.98]"
       onClick={onClick}
     >
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-lg">{plan.name}</CardTitle>
+        <CardTitle className="text-base md:text-lg">{plan.name}</CardTitle>
         <Badge
           variant={plan.status === 'active' ? 'default' :
                    plan.status === 'completed' ? 'secondary' : 'destructive'}
@@ -37,7 +37,7 @@ export function PlanCard({ plan, onClick }: PlanCardProps) {
         </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex justify-between text-sm">
+        <div className="flex justify-between text-xs md:text-sm flex-wrap gap-1">
           <span>Feature {plan.completedCount}/{plan.featureCount}</span>
           {eta && <span className="text-muted-foreground">ETA: ~{eta}m</span>}
         </div>

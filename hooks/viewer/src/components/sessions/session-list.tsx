@@ -91,7 +91,7 @@ export function SessionList({ sessions, selectedSessionId, onSelect, loading = f
               style={{ height: `${ITEM_HEIGHT - 8}px` }}
             >
               <div className="flex items-start justify-between mb-2">
-                <div className="font-medium truncate flex-1" title={session.project_name}>
+                <div className="text-sm md:text-base font-medium truncate flex-1" title={session.project_name}>
                   {session.project_name}
                 </div>
                 <Badge variant="outline" className="ml-2 shrink-0">
@@ -99,7 +99,7 @@ export function SessionList({ sessions, selectedSessionId, onSelect, loading = f
                 </Badge>
               </div>
 
-              <div className="flex items-center gap-4 text-sm text-muted-foreground mb-1">
+              <div className="flex items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground mb-1 flex-wrap">
                 <span>{formatDuration(session.duration)}</span>
                 <span>{formatCost(session.cost_usd)}</span>
               </div>

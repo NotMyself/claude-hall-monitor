@@ -27,8 +27,8 @@ export function SettingsPage() {
   }, [soundEnabled]);
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <h1 className="text-3xl font-bold">Settings</h1>
+    <div className="max-w-2xl space-y-4 md:space-y-6">
+      <h1 className="text-2xl md:text-3xl font-bold">Settings</h1>
 
       {/* Appearance */}
       <Card>
@@ -37,17 +37,17 @@ export function SettingsPage() {
           <CardDescription>Customize how the dashboard looks</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 justify-between">
             <Label>Theme</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button variant={theme === 'light' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('light')}>
-                <Sun className="h-4 w-4 mr-1" /> Light
+                <Sun className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Light</span>
               </Button>
               <Button variant={theme === 'dark' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('dark')}>
-                <Moon className="h-4 w-4 mr-1" /> Dark
+                <Moon className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">Dark</span>
               </Button>
               <Button variant={theme === 'system' ? 'default' : 'outline'} size="sm" onClick={() => setTheme('system')}>
-                <Monitor className="h-4 w-4 mr-1" /> System
+                <Monitor className="h-4 w-4 sm:mr-1" /> <span className="hidden sm:inline">System</span>
               </Button>
             </div>
           </div>
@@ -61,7 +61,7 @@ export function SettingsPage() {
           <CardDescription>Configure notification preferences</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 justify-between">
             <div>
               <Label>Sound notifications</Label>
               <p className="text-sm text-muted-foreground">Play sound on plan completion</p>

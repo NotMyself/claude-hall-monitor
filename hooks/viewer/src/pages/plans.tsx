@@ -14,15 +14,15 @@ interface SplitPanelProps {
 
 function SplitPanel({ plans, selectedPlan, onSelect }: SplitPanelProps) {
   return (
-    <div className="grid grid-cols-3 gap-4 h-full">
-      <div className="col-span-1 h-full">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 h-full">
+      <div className="md:col-span-1 h-full">
         <PlanList
           plans={plans}
           selectedPlan={selectedPlan || undefined}
           onSelect={onSelect}
         />
       </div>
-      <div className="col-span-2 h-full overflow-auto">
+      <div className="md:col-span-2 h-full overflow-auto">
         {selectedPlan ? (
           <PlanDetail plan={selectedPlan} />
         ) : (
@@ -43,17 +43,17 @@ export function PlansPage() {
 
   if (loading) {
     return (
-      <div className="h-full flex flex-col p-6">
+      <div className="h-full flex flex-col">
         <div className="mb-4 h-10 flex items-center">
           <div className="h-8 w-64 bg-muted animate-pulse rounded" />
         </div>
-        <div className="grid grid-cols-3 gap-4 flex-1">
-          <div className="col-span-1 space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-1">
+          <div className="md:col-span-1 space-y-2">
             {[...Array(3)].map((_, i) => (
               <PlanCardSkeleton key={i} />
             ))}
           </div>
-          <div className="col-span-2">
+          <div className="md:col-span-2">
             <PlanDetailSkeleton />
           </div>
         </div>
@@ -77,9 +77,9 @@ export function PlansPage() {
   const completedPlans = plans.filter(p => p.status === 'completed' || p.status === 'failed');
 
   return (
-    <div className="h-full flex flex-col p-6">
+    <div className="h-full flex flex-col">
       <Tabs defaultValue="active" className="h-full flex flex-col">
-        <TabsList className="mb-4">
+        <TabsList className="mb-3 md:mb-4">
           <TabsTrigger value="active">
             Active ({activePlans.length})
           </TabsTrigger>

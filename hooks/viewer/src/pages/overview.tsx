@@ -9,14 +9,14 @@ export function OverviewPage() {
   const tokenData: { model: string; tokens: number }[] = [];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <section>
-        <h2 className="text-2xl font-bold mb-4">Active Orchestrations</h2>
+        <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">Active Orchestrations</h2>
         <ActiveOrchestrations />
       </section>
 
       <section>
-        <h2 className="text-2xl font-bold mb-4">Metrics Today</h2>
+        <h2 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">Metrics Today</h2>
         <MetricsGrid />
       </section>
 
